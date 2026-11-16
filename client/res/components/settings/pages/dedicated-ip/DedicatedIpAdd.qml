@@ -126,7 +126,7 @@ Item {
       //: so the link will be applied correctly.
       text: uiTranslate("DedicatedIpAddRow", "Paste your token below.  If you've recently purchased a dedicated IP, you can generate the token by going to the [[My Account]] page.")
       onLinkActivated: {
-        Qt.openUrlExternally("https://www.privateinternetaccess.com/pages/client-control-panel/dedicated-ip")
+        Qt.openUrlExternally(BrandHelper.getBrandParam("getDedicatedIpLink"))
       }
     }
 

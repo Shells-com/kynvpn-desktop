@@ -50,7 +50,7 @@ Item {
   property string heroImageSource: Theme.changelog.dedicatedIpImage
   property bool ctaEnabled: true
   function onCtaClicked () {
-    Qt.openUrlExternally("https://www.privateinternetaccess.com/vpn-features/dedicated-ip-vpn")
+    Qt.openUrlExternally(BrandHelper.getBrandParam("getDedicatedIpLink"))
   }
 
   implicitHeight: {

@@ -88,7 +88,7 @@ Rectangle {
                   "ChangelogWindow",
                   "With our comprehensive split tunneling functionality, you can control which apps use the VPN and when. Check out our Split Tunnel [[app examples]] to see what's possible.")
       onMessageLinkClicked: Qt.openUrlExternally(
-                    "https://www.privateinternetaccess.com/helpdesk/kb/articles/split-tunnel-app-examples")
+                    BrandHelper.getBrandParam("appExclusionsHelpLink"))
       sourceImage: Theme.changelog.splitTunnelImage
       //: Screen reader annotation for the split tunnel image in the
       //: What's New view

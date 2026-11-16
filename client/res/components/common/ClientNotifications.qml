@@ -498,7 +498,7 @@ Item {
     severity: severities.warning
     links: [{
       text: uiTranslate("RatingRequestNotificationStatus", "Contact Support"),
-      clicked: function() { Qt.openUrlExternally("https://www.privateinternetaccess.com/helpdesk/new-ticket") }
+      clicked: function() { Qt.openUrlExternally(BrandHelper.getBrandParam("helpDeskLink")) }
     }]
     active: Daemon.state.usingSlowInterval &&
             Daemon.state.connectionLost === 0 &&
@@ -607,7 +607,7 @@ Item {
     severity: severities.info
     links: [{
       text: uiTr("Get a new one"),
-      clicked: function() { Qt.openUrlExternally("https://www.privateinternetaccess.com/pages/client-control-panel/dedicated-ip") }
+      clicked: function() { Qt.openUrlExternally(BrandHelper.getBrandParam("getDedicatedIpLink")) }
     }]
     dismissible: false
     timestampValue: Daemon.state.dedicatedIpExpiring
@@ -689,7 +689,8 @@ Item {
 
   NotificationStatus {
     id: surveyLink
-    active: Daemon.settings.successfulSessionCount >= 15 && Daemon.settings.surveyRequestEnabled
+    active: Daemon.settings.successfulSessionCount >= 15 && Daemon.settings.surveyRequestEnabled &&
+            BrandHelper.brandCode === 'pia'
     severity: severities.info
     message: "Want to help make PIA better? Let us know how we can improve!"
     dismissible: true
