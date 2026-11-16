@@ -19,6 +19,7 @@
 #pragma once
 #include <kapps_net/net.h>
 #include <string>
+#include <cstdint>
 
 class KAPPS_NET_EXPORT RouteManager
 {

@@ -21,6 +21,7 @@
 #include <kapps_core/core.h>
 #include "originalnetworkscan.h"
 #include <string>
+#include <cstdint>
 #include <set>
 #include <vector>
 #include <memory>

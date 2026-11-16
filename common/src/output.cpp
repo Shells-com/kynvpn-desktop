@@ -45,7 +45,9 @@ namespace
         IndentedIODevice(FILE *stream, OpenMode openMode)
             : _startLine{true}
         {
-            _dev.open(stream, openMode);
+            // Wraps stdout/stderr, which are already open; there is nothing
+            // useful to do if this fails.
+            static_cast<void>(_dev.open(stream, openMode));
             QIODevice::open(openMode);
         }
         virtual qint64 readData(char *data, qint64 maxSize) override

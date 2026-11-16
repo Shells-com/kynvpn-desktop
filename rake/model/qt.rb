@@ -27,8 +27,8 @@ class Qt
     # while still allowing the product to be built with whatever version of Qt
     # is available.  (Later releases may likely work, but there are no
     # guarantees.)
-    PreferredQtMinorVersion = 2
-    PreferredQtPatchVersion = 4
+    PreferredQtMinorVersion = 12
+    PreferredQtPatchVersion = 0
 
     # Score biases to implement the preferences above
     ExactMatchBias = 2000000

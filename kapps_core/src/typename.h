@@ -18,6 +18,8 @@
 
 #pragma once
 #include "stringslice.h"
+#include <type_traits>
+#include <utility>
 #if __clang__
     #if __clang_major__ >= 16 || (defined(KAPPS_CORE_OS_MACOS) && __clang_major__ >= 15)
         #define IGNORE_CONSTEXPR_CONVERSION _Pragma("clang diagnostic ignored \"-Wenum-constexpr-conversion\"") 
@@ -115,53 +117,58 @@ StringSlice enumValueName()
     RESET_ENUM_CONSTEXPR_CONVERSION
 }
 
+namespace detail_
+{
+    // Whether static_cast<E>(N) is a valid constant expression.  For an
+    // unscoped enum without a fixed underlying type, only values in the range
+    // of its enumerators are valid; recent compilers reject other values (in
+    // clang >= 20, this is a hard error that can't be disabled).  A
+    // non-constant template argument is a substitution failure, so it can be
+    // detected here.
+    template<class E, int N, class = void>
+    struct EnumConstantValid : std::false_type {};
+    template<class E, int N>
+    struct EnumConstantValid<E, N, std::void_t<std::integral_constant<E, static_cast<E>(N)>>>
+        : std::true_type {};
+
+    template<class E, int N>
+    bool enumValueNameIf(E value, StringSlice &result)
+    {
+        if constexpr(EnumConstantValid<E, N>::value)
+        {
+            if(value == static_cast<E>(N))
+            {
+                result = enumValueName<E, static_cast<E>(N)>();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    template<class E, int... Ns>
+    StringSlice enumValueNameAny(E value, std::integer_sequence<int, Ns...>)
+    {
+        StringSlice result;
+        // Stops at the first match
+        (enumValueNameIf<E, Ns>(value, result) || ...);
+        return result;
+    }
+}
+
 // Get the name of an enumeration value known at runtime.
-// TODO - Right now this just switches over numeric values 0-9.  It should
+// TODO - Right now this just checks numeric values 0-14 and 127.  It should
 // be possible to detect the actual last valid value by determining if a numeric
 // value corresponds to a real value.
 template<class E>
 StringSlice enumValueName(E value)
 {
-    // We are stretching the type system a bit by just checking a few common values for enums.
-    // Any value outside the switch will just return an empty string.
-    DISABLE_ENUM_CONSTEXPR_CONVERSION
-    switch(value) 
-    {
-        case static_cast<E>(0):
-            return enumValueName<E, static_cast<E>(0)>();
-        case static_cast<E>(1):
-            return enumValueName<E, static_cast<E>(1)>();
-        case static_cast<E>(2):
-            return enumValueName<E, static_cast<E>(2)>();
-        case static_cast<E>(3):
-            return enumValueName<E, static_cast<E>(3)>();
-        case static_cast<E>(4):
-            return enumValueName<E, static_cast<E>(4)>();
-        case static_cast<E>(5):
-            return enumValueName<E, static_cast<E>(5)>();
-        case static_cast<E>(6):
-            return enumValueName<E, static_cast<E>(6)>();
-        case static_cast<E>(7):
-            return enumValueName<E, static_cast<E>(7)>();
-        case static_cast<E>(8):
-            return enumValueName<E, static_cast<E>(8)>();
-        case static_cast<E>(9):
-            return enumValueName<E, static_cast<E>(9)>();
-        case static_cast<E>(10):
-            return enumValueName<E, static_cast<E>(10)>();
-        case static_cast<E>(11):
-            return enumValueName<E, static_cast<E>(11)>();
-        case static_cast<E>(12):
-            return enumValueName<E, static_cast<E>(12)>();
-        case static_cast<E>(13):
-            return enumValueName<E, static_cast<E>(13)>();
-        case static_cast<E>(14):
-            return enumValueName<E, static_cast<E>(14)>();
-        case static_cast<E>(127):
-            return enumValueName<E, static_cast<E>(127)>();
-    }
-    return {};
-    RESET_ENUM_CONSTEXPR_CONVERSION
+    // We are stretching the type system a bit by just checking a few common
+    // values for enums.  Any other value just returns an empty string.
+    StringSlice result = detail_::enumValueNameAny(value,
+        std::make_integer_sequence<int, 15>{});
+    if(result.empty())
+        result = detail_::enumValueNameAny(value, std::integer_sequence<int, 127>{});
+    return result;
 }
 
 }}
