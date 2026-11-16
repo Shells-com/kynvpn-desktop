@@ -217,8 +217,10 @@ jobs:
           python-version: '3.13'
       - name: Install Qt
         run: |
-          python -I .github/scripts/install-qt-official.py ${{ matrix.qt_host }} "$QT_VERSION" \
-            ${{ matrix.qt_arch }} 'C:/Qt' qtimageformats
+          # Debug symbols of qtbase/qtdeclarative go into the debug symbol
+          # artifact (for crash reports)
+          python -I .github/scripts/install-qt-official.py --debug-info=qtbase,qtdeclarative \
+            ${{ matrix.qt_host }} "$QT_VERSION" ${{ matrix.qt_arch }} 'C:/Qt' qtimageformats
           test -f "C:/Qt/$QT_VERSION/${{ matrix.qt_dir }}/bin/windeployqt.exe"
           echo "QTROOT=C:/Qt/$QT_VERSION" >> "$GITHUB_ENV"
       - name: Prepare signing certificate

@@ -9,6 +9,8 @@
 #   version: e.g. 6.12.0
 #   arch:    package suffix, e.g. win64_msvc2022_64, win64_msvc2022_arm64
 #   module:  add-on modules besides the essentials, e.g. qtimageformats
+#   --debug-info=qtbase,qtdeclarative: also install the debug symbols of
+#            these repositories
 #
 # Qt ends up in <output dir>/<version>/<arch without the "win64_" prefix>
 # (e.g. C:/Qt/6.12.0/msvc2022_64), the same layout as the official installer.
@@ -108,11 +110,19 @@ def seven_zip():
 
 
 def main():
-    if len(sys.argv) < 5:
-        print('usage: install-qt-official.py <host> <version> <arch> <dir> [module ...]')
+    args = sys.argv[1:]
+    # --debug-info=<repo>,<repo>: also install the debug symbols (e.g. PDBs)
+    # of these Qt repositories (e.g. qtbase,qtdeclarative)
+    debug_repos = []
+    for a in list(args):
+        if a.startswith('--debug-info='):
+            debug_repos = [r for r in a.split('=', 1)[1].split(',') if r]
+            args.remove(a)
+    if len(args) < 4:
+        print('usage: install-qt-official.py [--debug-info=<repo>,...] <host> <version> <arch> <dir> [module ...]')
         sys.exit(2)
-    host, version, arch, out_dir = sys.argv[1:5]
-    modules = sys.argv[5:]
+    host, version, arch, out_dir = args[:4]
+    modules = args[4:]
 
     repo, root = find_repository(host, version, arch)
     print(f'Repository: {repo}', flush=True)
@@ -121,10 +131,18 @@ def main():
     sevenzip = seven_zip()
 
     with tempfile.TemporaryDirectory() as tmp:
-        for package in select_packages(root, version, arch, modules):
+        packages = select_packages(root, version, arch, modules)
+        if debug_repos:
+            debug_name = f'qt.qt6.{version.replace(".", "")}.debug_info.{arch}'
+            packages += [p for p in root.findall('PackageUpdate') if p.findtext('Name') == debug_name]
+        for package in packages:
             name = package.findtext('Name')
             pkg_version = package.findtext('Version')
             archives = [a.strip() for a in (package.findtext('DownloadableArchives') or '').split(',') if a.strip()]
+            if '.debug_info.' in name:
+                archives = [a for a in archives if a.startswith(tuple(f'{r}-' for r in debug_repos))]
+                if not archives:
+                    raise RuntimeError(f'No debug symbols found for {debug_repos}')
             for archive in archives:
                 if archive.startswith(SKIP_ARCHIVES):
                     continue

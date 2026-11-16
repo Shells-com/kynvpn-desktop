@@ -18,8 +18,13 @@ class MakeQtSymbols
         additional_suffixes = [".5"]
         # Libs required for our application
         if Build.windows?
+            # Qt's debug information packages put the PDBs next to the DLLs
+            # in bin/ (older releases used lib/)
+            bin_path = "#{Executable::Qt.targetQtRoot}/bin/"
             $LIB_LIST.each do |i|
-                DumpSyms.dump_syms(File.join(lib_path, "Qt6#{i}.pdb"), output_dir, additional_suffixes)
+                pdb = [bin_path, lib_path].map { |d| File.join(d, "Qt6#{i}.pdb") }.find { |f| File.exist?(f) }
+                raise "Qt6#{i}.pdb not found in #{bin_path} or #{lib_path} (install Qt's debug information, or set SKIP_QT_DEBUG_SYMBOLS=1)" unless pdb
+                DumpSyms.dump_syms(pdb, output_dir, additional_suffixes)
             end
         elsif Build.macos?
             $LIB_LIST.each do |i|
