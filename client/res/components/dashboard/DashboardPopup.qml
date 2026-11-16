@@ -541,7 +541,7 @@ PiaWindow {
   }
 
   Shortcut {
-    sequence: StandardKey.Close
+    sequences: [StandardKey.Close]
     context: Qt.WindowShortcut
     onActivated: animHide()
   }

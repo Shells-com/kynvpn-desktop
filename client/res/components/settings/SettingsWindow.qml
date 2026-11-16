@@ -325,7 +325,7 @@ SecondaryWindow {
 
   // Cmd+comma is the typical "preferences" shortcut on Mac OS.
   Shortcut {
-    sequence: StandardKey.Preferences
+    sequences: [StandardKey.Preferences]
     context: Qt.ApplicationShortcut
     onActivated: showSettings()
   }

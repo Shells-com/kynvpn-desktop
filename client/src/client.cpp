@@ -575,7 +575,9 @@ Client::Client(bool hasExistingSettingsFile, const QJsonObject &initialSettings,
     // The Error type is used by QML to refer to Error::Code values.
     // Note that we call this type 'NativeError' in QML because 'Error' refers
     // to the JS Error class.
-    qmlRegisterUncreatableType<Error>("PIA.Error", 1, 0, "NativeError", "Can't create Error from QML");
+    // Registered as a meta-object (not a value type) since QML only uses its
+    // enums; value type names must be lowercase in Qt 6.12+.
+    qmlRegisterUncreatableMetaObject(Error::staticMetaObject, "PIA.Error", 1, 0, "NativeError", "Can't create Error from QML");
 
     qmlRegisterType<CircleMouseArea>("PIA.CircleMouseArea", 1, 0, "CircleMouseArea");
     qmlRegisterType<FocusCue>("PIA.FocusCue", 1, 0, "FocusCue");

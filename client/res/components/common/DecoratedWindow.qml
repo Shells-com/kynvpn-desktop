@@ -223,7 +223,7 @@ PiaWindow {
   // Alt+F4 on Windows can be handled by the window procedure, but Cmd+W on Mac
   // is our responsibility.
   Shortcut {
-    sequence: StandardKey.Close
+    sequences: [StandardKey.Close]
     context: Qt.WindowShortcut
     onActivated: {
       // If the dashboard is visible, focus it before hiding (otherwise it would
