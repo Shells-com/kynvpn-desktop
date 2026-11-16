@@ -63,6 +63,42 @@ module PiaLinux
             copyWithoutDebug(File.join(Executable::Qt.targetQtRoot, 'qml', q),
                              File.join(stageRoot, 'qml', q))
         end
+
+        # Stage any other Qt libraries needed by what was deployed.  Qt splits
+        # and merges libraries between releases (and QML plugins and platform
+        # plugins depend on libraries we don't use directly), so follow the
+        # actual ELF dependencies rather than relying only on the list above.
+        deployQtDependencies(stageRoot)
+    end
+
+    def self.elfFile?(path)
+        File.file?(path) && !File.symlink?(path) &&
+            File.open(path, 'rb') { |f| f.read(4) } == "\x7FELF".b
+    end
+
+    def self.deployQtDependencies(stageRoot)
+        qtLibDir = File.join(Executable::Qt.targetQtRoot, 'lib')
+        stageLibDir = File.join(stageRoot, 'lib')
+        scanned = {}
+        loop do
+            needed = []
+            FileList[File.join(stageRoot, '{bin,lib,plugins,qml}/**/*')].each do |f|
+                next if scanned[f] || !elfFile?(f)
+                scanned[f] = true
+                out, status = Open3.capture2(Patchelf, '--print-needed', f)
+                needed.concat(out.split("\n")) if status.success?
+            end
+            missing = needed.uniq.select do |lib|
+                (lib.start_with?('libQt6') || lib.start_with?('libicu')) &&
+                    !File.exist?(File.join(stageLibDir, lib)) &&
+                    File.exist?(File.join(qtLibDir, lib))
+            end
+            break if missing.empty?
+            missing.each do |lib|
+                puts "deploy Qt dependency: #{lib}"
+                FileUtils.copy_file(File.join(qtLibDir, lib), File.join(stageLibDir, lib))
+            end
+        end
     end
 
     def self.defineTargets(version, stage)
@@ -123,14 +159,14 @@ module PiaLinux
                 'libQt6QuickLayouts.so.6',
                 'libQt6QuickDialogs2.so.6',
                 'libQt6QuickDialogs2QuickImpl.so.6',
-                'libQt6QuickDialogs2Utils.so.6',
-                'libQt6WaylandEglClientHwIntegration.so.6'
+                'libQt6QuickDialogs2Utils.so.6'
             ], [
                 'platforms',
                 'egldeviceintegrations',
                 'xcbglintegrations',
                 'wayland-shell-integration',
-                'wayland-egl',
+                'wayland-graphics-integration-client',
+                'wayland-decoration-client',
                 'tls'
             ], [
                 'builtins.qmltypes',
@@ -143,7 +179,7 @@ module PiaLinux
             # unbound and hnsd run on different effective users, which disables RPATHs with $ORIGIN .
             # Here we hardcode the RPATH to the installation directory on linux. We currently cannot 
             # choose a different install directory, so hardcoding it here is okay.
-            FileList[File.join(piafiles, 'bin/pia-unbound'), File.join(piafiles, 'bin/pia-hnsd')].each do |f|
+            FileList[File.join(piafiles, "bin/#{Build::Brand}-unbound"), File.join(piafiles, "bin/#{Build::Brand}-hnsd")].each do |f|
                 Util.shellRun(Patchelf, '--force-rpath', '--set-rpath', "/opt/#{Build::Brand}vpn/lib", f)
             end
     
