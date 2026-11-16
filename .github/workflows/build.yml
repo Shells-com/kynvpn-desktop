@@ -1,0 +1,277 @@
+name: Build
+
+# Builds the client for every platform and keeps the installers, debug
+# symbols, etc. as workflow artifacts.  Pushing a tag named v<version>
+# (e.g. v1.0.0) also creates a draft GitHub release with the installers.
+#
+# Qt:
+# - Linux and macOS use the open source Qt builds from Shells-com/kynvpn-qt
+#   (release KYNVPN_QT_TAG).
+# - Windows uses the official Qt binaries (installed with aqtinstall).
+#
+# Code signing is optional and enabled by repository secrets:
+# - macOS signing: MACOS_CERT_P12 (base64 .p12), MACOS_CERT_PASSWORD,
+#   MACOS_CODESIGN_IDENTITY (certificate common name)
+# - macOS notarization (needs signing): APPLE_ID, APPLE_APP_PASSWORD,
+#   APPLE_TEAM_ID
+# - Windows signing: WINDOWS_CERT_PFX (base64 .pfx), WINDOWS_CERT_PASSWORD
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  QT_VERSION: 6.12.0
+  KYNVPN_QT_TAG: v6.12.0-1
+  # Skips the Gemfile (pry/rspec are only for local development)
+  GITHUB_CI: '1'
+  VARIANT: release
+
+jobs:
+  linux:
+    name: linux-${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    # Same environment as the Qt build (glibc 2.34), so the client runs
+    # wherever that Qt runs
+    container: almalinux:9
+    env:
+      LFS_EXCLUDE: deps/built/mac/**,deps/built/win/**,deps/dump_syms/dump_syms.exe,deps/dump_syms/dump_syms_mac
+    steps:
+      - name: Install build dependencies
+        run: |
+          echo -e 'retries=10\nskip_if_unavailable=False' >> /etc/dnf/dnf.conf
+          dnf -y --refresh install dnf-plugins-core epel-release
+          dnf config-manager --set-enabled crb
+          dnf -y --refresh install \
+            git git-lfs clang llvm gcc-c++ ruby rubygem-rake \
+            libnl3-devel mesa-libGL-devel mesa-libEGL-devel libglvnd-devel \
+            libxkbcommon-devel fontconfig freetype glib2 dbus-libs \
+            zip unzip xz which file findutils tar gzip
+          dnf clean all
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # version is derived from tags
+      - name: Mark workspace safe
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: List LFS objects
+        run: git lfs ls-files -l --exclude "$LFS_EXCLUDE" | cut -d' ' -f1 | sort > .lfs-assets-id
+      - uses: actions/cache@v6
+        with:
+          path: .git/lfs
+          key: lfs-linux-${{ hashFiles('.lfs-assets-id') }}
+          restore-keys: lfs-linux-
+      - name: Fetch LFS objects
+        run: git lfs pull --exclude "$LFS_EXCLUDE"
+      - name: Install Qt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
+          dnf -y install gh
+          pkg="qt-$QT_VERSION-kynvpn-linux-${{ matrix.arch }}.run"
+          gh release download "$KYNVPN_QT_TAG" -R Shells-com/kynvpn-qt -p "$pkg" -D "$RUNNER_TEMP"
+          gh attestation verify "$RUNNER_TEMP/$pkg" -R Shells-com/kynvpn-qt
+          sh "$RUNNER_TEMP/$pkg" -- /opt/Qt-kynvpn --yes
+          rm "$RUNNER_TEMP/$pkg"
+          echo "QTROOT=/opt/Qt-kynvpn/$QT_VERSION" >> "$GITHUB_ENV"
+      - name: Build
+        run: rake -j"$(nproc)" artifacts
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: kyn-linux-${{ matrix.arch }}
+          path: out/*/artifacts/
+          if-no-files-found: error
+
+  macos:
+    name: macos-universal
+    runs-on: macos-15
+    env:
+      LFS_EXCLUDE: deps/built/linux/**,deps/built/win/**,deps/dump_syms/dump_syms.exe,deps/dump_syms/dump_syms_linux*.bin
+      ARCHITECTURE: universal
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: List LFS objects
+        run: git lfs ls-files -l --exclude "$LFS_EXCLUDE" | cut -d' ' -f1 | sort > .lfs-assets-id
+      - uses: actions/cache@v6
+        with:
+          path: .git/lfs
+          key: lfs-macos-${{ hashFiles('.lfs-assets-id') }}
+          restore-keys: lfs-macos-
+      - name: Fetch LFS objects
+        run: git lfs pull --exclude "$LFS_EXCLUDE"
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - name: Install Qt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pkg="qt-$QT_VERSION-kynvpn-macos-universal.run"
+          gh release download "$KYNVPN_QT_TAG" -R Shells-com/kynvpn-qt -p "$pkg" -D "$RUNNER_TEMP"
+          gh attestation verify "$RUNNER_TEMP/$pkg" -R Shells-com/kynvpn-qt
+          sh "$RUNNER_TEMP/$pkg" -- "$HOME/Qt-kynvpn" --yes
+          rm "$RUNNER_TEMP/$pkg"
+          echo "QTROOT=$HOME/Qt-kynvpn/$QT_VERSION" >> "$GITHUB_ENV"
+      - name: Import signing certificate
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          MACOS_CODESIGN_IDENTITY: ${{ secrets.MACOS_CODESIGN_IDENTITY }}
+        if: env.MACOS_CERT_P12 != ''
+        run: |
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          keychain_password="$(openssl rand -hex 16)"
+          echo "$MACOS_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$RUNNER_TEMP/cert.p12" -k "$keychain" -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -k "$keychain_password" "$keychain"
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/cert.p12"
+          echo "PIA_CODESIGN_CERT=$MACOS_CODESIGN_IDENTITY" >> "$GITHUB_ENV"
+      - name: Build
+        env:
+          PIA_APPLE_ID_EMAIL: ${{ secrets.APPLE_ID }}
+          PIA_APPLE_ID_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          PIA_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          PIA_APPLE_NOTARIZE_TIMEOUT: 1h
+          PIA_BRANCH_BUILD: ${{ github.ref_name }}
+        run: rake -j"$(sysctl -n hw.ncpu)" artifacts
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: kyn-macos-universal
+          path: out/*/artifacts/
+          if-no-files-found: error
+
+  windows:
+    name: windows-${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: windows-2025
+            aqt_host: windows
+            aqt_arch: win64_msvc2022_64
+            qt_dir: msvc2022_64
+          - arch: arm64
+            runner: windows-11-arm
+            aqt_host: windows_arm64
+            aqt_arch: win64_msvc2022_arm64
+            qt_dir: msvc2022_arm64
+    runs-on: ${{ matrix.runner }}
+    env:
+      LFS_EXCLUDE: deps/built/linux/**,deps/built/mac/**,deps/dump_syms/dump_syms_mac,deps/dump_syms/dump_syms_linux*.bin
+      ARCHITECTURE: ${{ matrix.arch }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Configure git
+        # Keep LF line endings as committed; some sources and scripts
+        # require them
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: List LFS objects
+        run: git lfs ls-files -l --exclude "$LFS_EXCLUDE" | cut -d' ' -f1 | sort > .lfs-assets-id
+      - uses: actions/cache@v6
+        with:
+          path: .git/lfs
+          key: lfs-windows-${{ hashFiles('.lfs-assets-id') }}
+          restore-keys: lfs-windows-
+      - name: Fetch LFS objects
+        run: git lfs pull --exclude "$LFS_EXCLUDE"
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - name: Install Qt
+        run: |
+          python -m pip install --quiet aqtinstall
+          # download.qt.io intermittently fails checksum downloads; retry
+          for attempt in 1 2 3 4 5; do
+            if python -m aqt install-qt ${{ matrix.aqt_host }} desktop "$QT_VERSION" ${{ matrix.aqt_arch }} \
+                -m qtimageformats -O 'C:/Qt'; then
+              break
+            fi
+            [ "$attempt" = 5 ] && exit 1
+            echo "aqt failed, retrying in 30s"; sleep 30
+          done
+          test -d "C:/Qt/$QT_VERSION/${{ matrix.qt_dir }}/bin"
+          echo "QTROOT=C:/Qt/$QT_VERSION" >> "$GITHUB_ENV"
+      - name: Prepare signing certificate
+        env:
+          WINDOWS_CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        if: env.WINDOWS_CERT_PFX != ''
+        run: |
+          echo "$WINDOWS_CERT_PFX" | base64 --decode > "$RUNNER_TEMP/cert.pfx"
+          echo "PIA_SIGNTOOL_CERTFILE=$(cygpath -w "$RUNNER_TEMP/cert.pfx")" >> "$GITHUB_ENV"
+          echo "PIA_SIGNTOOL_PASSWORD=$WINDOWS_CERT_PASSWORD" >> "$GITHUB_ENV"
+      - name: Build
+        run: rake -j"$NUMBER_OF_PROCESSORS" artifacts
+      - name: Unit tests
+        # Not part of 'artifacts' on Windows (no coverage measurement)
+        run: rake -j"$NUMBER_OF_PROCESSORS" test
+      - name: Remove signing certificate
+        if: always()
+        run: rm -f "$RUNNER_TEMP/cert.pfx"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: kyn-windows-${{ matrix.arch }}
+          path: out/*/artifacts/
+          if-no-files-found: error
+
+  release:
+    name: Draft release
+    needs: [linux, macos, windows]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: kyn-*
+          path: dist
+      - name: Collect installers
+        run: |
+          mkdir release
+          find dist -maxdepth 4 -path '*/artifacts/*' -type f \
+            \( -name 'kyn-*.run' -o -name 'kyn-*.zip' -o -name 'kyn-*.exe' \) \
+            -exec cp {} release/ \;
+          ls -la release
+          cd release && sha256sum * > SHA256SUMS
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" release/* -R "$GITHUB_REPOSITORY" \
+            --draft --title "Kyn VPN $GITHUB_REF_NAME" --generate-notes
