@@ -14,7 +14,7 @@ Set environment variables:
 | PIA_SIGNTOOL_PASSWORD | Password to decrypt cert file (if signing with encrypted PFX archived cert) |
 | PIA_SIGNTOOL_THUMBRPINT | Thumbprint of certificate - signs with cert from cert store instead of PFX archive |
 
-Then call `rake BRAND=pia VARIANT=release all`
+Then call `rake BRAND=kyn VARIANT=release all`
 
 ### Mac
 
@@ -27,15 +27,15 @@ Set environment variables:
 | PIA_APPLE_ID_PASSWORD | Password to Apple ID for notarization. |
 | PIA_APPLE_ID_PROVIDER | (Optional) Provider to use if Apple ID is member of multiple teams. |
 
-Then call `rake BRAND=pia VARIANT=release ARCHITECTURE=universal all`
+Then call `rake BRAND=kyn VARIANT=release ARCHITECTURE=universal all`
 
 A certificate is required for the Mac build to be installable (even for local builds), see below to generate a self-signed certificate for local use.  Unsigned builds can be manually installed by running the install script with `sudo`.
 
 ### Linux
 
-#### PIA Linux build environment
+#### Linux build environment
 
-All final artifacts shipped with PIA Desktop are now built using a Debian 11 Bullseye Docker container to maximize compatibility and ease of environment management.
+All final artifacts shipped with Kyn VPN Desktop are now built using a Debian 11 Bullseye Docker container to maximize compatibility and ease of environment management.
 
 Cross builds are still possible - release artifacts for armhf and arm64 are cross-compiled from an x86_64 host.
 
@@ -45,7 +45,7 @@ The Qt installation must be in $HOME or /opt to be accessible in the Docker cont
 
 #### Host architecture builds
 
-Commands are executed from the `pia_desktop` repository root.
+Commands are executed from the repository root.
 This setup supports `amd64`, `arm64`, and `armhf` hosts.
 Additional architectures can be supported by adjusting the Docker container accordingly.
 
@@ -54,7 +54,7 @@ Additional architectures can be supported by adjusting the Docker container acco
 $ docker build . -f .github/workflows/docker/linux_builder.dockerfile -t pia_builder:latest
 $ docker run -it pia_builder:latest bash
 # Now, build inside Docker:
-$$ rake VARIANT=release BRAND=pia all
+$$ rake VARIANT=release BRAND=kyn all
 ```
 
 #### Cross builds
@@ -69,6 +69,6 @@ $ ARM_ARCH=arm64 # Can be arm64 or armhf
 $ docker build . -f .github/workflows/docker/linux_arm_builder.dockerfile --build-arg="CROSS_ARCH=${ARM_ARCH}" -t pia_${ARM_ARCH}_builder:latest
 $ docker run --mount type=bind,source="$(pwd)",target=/pia -e ARM_ARCH=${ARM_ARCH} -it pia_${ARM_ARCH}_builder:latest bash
 # Now, build inside Docker:
-$$ rake VARIANT=release BRAND=pia ARCHITECTURE=${ARM_ARCH} all
+$$ rake VARIANT=release BRAND=kyn ARCHITECTURE=${ARM_ARCH} all
 ```
 

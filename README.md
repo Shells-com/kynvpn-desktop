@@ -1,6 +1,8 @@
-# Private Internet Access Desktop Client
+# Kyn VPN Desktop Client
 
-This is the desktop client for the Private Internet Access VPN service. It consists of an unprivileged thin GUI client (the "client") and a privileged background service/daemon (the "daemon"). The daemon runs a single instance on the machine and is responsible for not only network configuration but also settings and account handling, talking to PIA servers as necessary. The client meanwhile runs in each active user's desktop and consists almost entirely of presentation logic. No matter how many users are active on a machine, they control the same single VPN instance and share a single PIA account.
+This is the desktop client for the [Kyn VPN](https://www.kynvpn.com) service. It consists of an unprivileged thin GUI client (the "client") and a privileged background service/daemon (the "daemon"). The daemon runs a single instance on the machine and is responsible for not only network configuration but also settings and account handling, talking to Kyn VPN servers as necessary. The client meanwhile runs in each active user's desktop and consists almost entirely of presentation logic. No matter how many users are active on a machine, they control the same single VPN instance and share a single Kyn VPN account.
+
+Kyn VPN Desktop is a fork of the [Private Internet Access Desktop Client](https://github.com/pia-foss/desktop), released under the GPLv3. The upstream copyright notices are retained in the source files.
 
 The project uses Qt 6.2 for cross-platform development, both in the client and daemon. The client GUI is based on Qt Quick, which uses declarative markup language and JavaScript and offers hardware accelerated rendering when available. Qt and Qt Quick tend to be more memory and CPU efficient compared to web-based UI frameworks like Electron or NW.js.
 
@@ -28,7 +30,7 @@ Git LFS initialized.
 After this, cloning the repository normally should also fetch the precompiled binaries:
 
 ```console
-> git clone https://github.com/pia-foss/desktop.git
+> git clone https://github.com/Shells-com/kynvpn-desktop.git
 ...
 Filtering content: 100% (24/24), 17.13 MiB | 1.89 MiB/s, done.
 ```
@@ -69,8 +71,8 @@ Filtering content: 100% (24/24), 17.13 MiB | 1.89 MiB/s, done.
      - The VS installer doesn't include the Console Debugger (CDB), which is needed to debug in Qt Creator.  More info: [Setting Up Debugger](https://doc.qt.io/qtcreator/creator-debugger-engines.html)
 - On **macOS**:
   - Qt 6.2.4
-    - PIA's universal build of Qt is recommended: [desktop-dep-build releases](https://github.com/pia-foss/desktop-dep-build/releases)
-    - The universal Qt build can be used for universal or single-architecture PIA builds.
+    - The universal Qt build from upstream PIA is recommended: [desktop-dep-build releases](https://github.com/pia-foss/desktop-dep-build/releases)
+    - The universal Qt build can be used for universal or single-architecture builds.
     - If you want Qt Creator, also install Qt from [qt.io](https://www.qt.io/download)
   - Big Sur or newer is required to build
   - Up-to-date version of Xcode
@@ -80,7 +82,7 @@ Filtering content: 100% (24/24), 17.13 MiB | 1.89 MiB/s, done.
   - Supported distribution with clang 11 or newer
   - Supported architectures: x86_64, arm64
   - Qt 6.2.4 or later
-    - PIA's build of Qt is recommended: [desktop-dep-build releases](https://github.com/pia-foss/desktop-dep-build/releases)
+    - The Qt build from upstream PIA is recommended: [desktop-dep-build releases](https://github.com/pia-foss/desktop-dep-build/releases)
     - If you want Qt Creator, also install Qt from [qt.io](https://www.qt.io/download)
   - Host build (Debian 11+ and derivatives):
     - `sudo apt install build-essential rake clang mesa-common-dev libnl-3-dev libnl-route-3-dev libnl-genl-3-dev git git-lfs`
@@ -96,28 +98,28 @@ The easiest way to perform these steps is to build and run an installer, after w
 
 To debug your own daemon, the installed daemon must first be stopped:
 
-- **Windows**: Run `services.msc` and stop the Private Internet Access Service. Set it to manual
-- **macOS**: Run `sudo launchctl unload /Library/LaunchDaemons/com.privateinternetaccess.vpn.daemon.plist`
-- **Linux**: Run `sudo systemctl stop piavpn`
+- **Windows**: Run `services.msc` and stop the Kyn VPN Service. Set it to manual
+- **macOS**: Run `sudo launchctl unload /Library/LaunchDaemons/com.kynvpn.vpn.daemon.plist`
+- **Linux**: Run `sudo systemctl stop kynvpn`
 
 The daemon must run as root. Consult your IDE/debugger documentation for how to safely run the debugger target as root.
 
 **Windows** only: 
   - If you have installed Qt using the official installer, add `C:\Qt\6.2.4\msvc2019_64\bin` to your user environment variable path.   
-    This is needed if you want to run `pia-client.exe` or `pia-service.exe` via command line.
-  - To run the pia-daemon, execute `.\pia-service.exe run` in Powershell with admin privileges
+    This is needed if you want to run `kyn-client.exe` or `kyn-service.exe` via command line.
+  - To run the kyn-daemon, execute `.\kyn-service.exe run` in Powershell with admin privileges
 
-To check PIA logs, go to your `*installation_path*\data` (The default path on Windows is `C:\Program Files\Private Internet Access\data`).  
-In order to enable all the logs, in PIA app *Settings* page go to Help and select *Enable Debug Logging*.
+To check Kyn VPN logs, go to your `*installation_path*\data` (The default path on Windows is `C:\Program Files\Kyn VPN\data`).  
+In order to enable all the logs, in the Kyn VPN app *Settings* page go to Help and select *Enable Debug Logging*.
 
 ### Quick start
 
 * To build the final installer for the host OS and architecture: `rake installer`
-  * Produced in `out/pia_debug_<arch>/installer`
+  * Produced in `out/kyn_debug_<arch>/installer`
 * To build all artifacts for the host OS and architecture: `rake all`
-  * Artifacts go to `out/pia_debug_<arch>/artifacts`
+  * Artifacts go to `out/kyn_debug_<arch>/artifacts`
 * To build just the staged installation for development: `rake`
-  * Staged installation is in `out/pia_debug_<arch>/stage` - run the client or daemon from here
+  * Staged installation is in `out/kyn_debug_<arch>/stage` - run the client or daemon from here
 * To run tests: `rake test`
 * To build for release instead of debug, set `VARIANT=release` with any of the above
 
@@ -132,13 +134,13 @@ The following targets can be passed to `rake`.  The default target is `stage`, w
 
 | Target | Explanation |
 |--------|-------------|
-| (default) | Builds the client and daemon; stages executables with dependencies in `out/pia_debug_x86_64/stage` for local testing. |
+| (default) | Builds the client and daemon; stages executables with dependencies in `out/kyn_debug_x86_64/stage` for local testing. |
 | `test` | Builds and runs unit tests; produces code coverage artifacts if possible on the current platform (requires clang 6+) |
 | `installer` | Builds the final installer artifact, including code signing if configured. |
 | `export` | Builds extra artifacts needed from CI but not part of any deployable artifact (currently translation exports) |
 | `libs` | Builds the dtop libraries and development artifact (see DTOP-LIBS.md) |
 | `tools` | Builds extra tools for development purposes that are not used as part of the build process or as part of any shipped artifact. |
-| `artifacts` | Builds all artifacts and copies to `out/pia_debug_x86_64/artifacts` (depends on most other targets, execpt `test` when coverage measurement isn't possible) |
+| `artifacts` | Builds all artifacts and copies to `out/kyn_debug_x86_64/artifacts` (depends on most other targets, execpt `test` when coverage measurement isn't possible) |
 | `all` | All targets. |
 
 #### Configurations
@@ -152,7 +154,7 @@ These are implemented in `rake/build.rb`.  The output directory name includes th
 | `VARIANT` | `debug`, `release` | `debug` | Create a debug build (unoptimized, some compression levels reduced for speed), or release build (optimized, maximum compression). |
 | `ARCHITECTURE` | `x86_64`, `x86`, `arm64`, `arm64e`, `armhf`, `universal` | Host architecture | Select an alternate architecture.  Architecture support varies by platform. |
 | `PLATFORM` | `windows`, `macos`, `linux`, `android`, `ios`, `iossim` | Host platform | Select an alternate platform.  Android and iOS targets only build core libraries and tests.  Android builds can be performed from macOS or Linux hosts.  iOS and iOS Simulator builds can be performed from macOS hosts. |
-| `BRAND` | (directories in `brands/`) | `pia` | Build an alternate brand. |
+| `BRAND` | (directories in `brands/`) | `kyn` | Build an alternate brand. |
 
 #### Variables
 
@@ -175,18 +177,18 @@ To test installation, you can generate a self-signed certificate and sign with t
 * Open Keychain Access
 * Create a new keychain
    1. Right-click in the Keychains pane and select "New Keychain..."
-   2. Give it a name (such as "PIA codesign") and password
+   2. Give it a name (such as "Kyn codesign") and password
 * Generate a self-signed code signing certificate
    1. Select your new keychain
    2. In the menu bar, select Keychain Access > Certificate Assistant > Create a Certificate...
-   3. Enter a name, such as "PIA codesign", it does not have to match the keychain name
+   3. Enter a name, such as "Kyn codesign", it does not have to match the keychain name
    4. Keep the default identity type "Self Signed Root"
    5. Change the certificate type to "Code Signing"
    6. Click Create, then Continue
 * Optional - disable "lock after inactivity" for your keychain
    1. Right-click on the keychain and select "Change Settings for Keychain"
    2. Turn off locking options as desired
-* Use the certificate to sign your PIA build
+* Use the certificate to sign your build
    * Qt Creator:
       1. Select Projects on the left sidebar, and go to the build settings for your current kit
       2. Expand "Build Environment"
@@ -229,16 +231,16 @@ The same `rake`-based build system is used, but the available targets differ.
 
 | Target | Explanation |
 |--------|-------------|
-| (default) | Stages core libraries with dependencies in `out/pia_debug_<platform>_<arch>/dtop-libs` for local testing. |
+| (default) | Stages core libraries with dependencies in `out/kyn_debug_<platform>_<arch>/dtop-libs` for local testing. |
 | `libs_archive` | Builds the library SDK ZIP containing the built libraries and headers. |
 | `tools` | Builds libraries and internal test harnesses used to test them. |
-| `artifacts` | Builds all artifacts and copies to `out/pia_debug_<platform>_<arch>/artifacts` (depends on most other targets) |
+| `artifacts` | Builds all artifacts and copies to `out/kyn_debug_<platform>_<arch>/artifacts` (depends on most other targets) |
 | `all` | All targets. |
 
 ### Automated testing
 
 In the `headless_tests` directory you will find a suite of tests written in ruby with the help of RSpec.
-They use `piactl` in the background to manipulate the state of the daemon and run diverse tests.
+They use `kynctl` in the background to manipulate the state of the daemon and run diverse tests.
 The advantage of testing in ruby is mainly simplicity, where doing things like calling API endpoints is much simpler than from C++ code.
 
 With these _almost_ end to end tests we hope to drastically reduce manual testing for releases to the point that we can release more frequently.  
@@ -249,11 +251,11 @@ Run all tests locally using `bundle exec rspec .`.
 
 #### Windows
 
-Add `C:\Program Files\Private Internet Access` to your user environment variable Path in order to be able to run `piactl` from the command line. (You can still run piactl using the full path, but the headless tests won't work).
+Add `C:\Program Files\Kyn VPN` to your user environment variable Path in order to be able to run `kynctl` from the command line. (You can still run kynctl using the full path, but the headless tests won't work).
 
 ## Contributing
 
-By contributing to this project you are agreeing to the terms stated in the [Contributor License Agreement](CLA.md). For more details please see our [Contribution Guidelines](https://pia-foss.github.io/contribute) or [CONTRIBUTING](/CONTRIBUTING.md).
+By contributing to this project you are agreeing to the terms stated in the [Contributor License Agreement](CLA.md). For more details please see [CONTRIBUTING](/CONTRIBUTING.md).
 
 ## Licensing
 

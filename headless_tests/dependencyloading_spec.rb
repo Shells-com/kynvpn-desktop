@@ -8,7 +8,7 @@ require_relative 'src/systemutil'
 describe "Dependency loading" do
     describe "daemon" do
         it "doesn't load system libraries" do
-            incorrectly_loaded_libs = LoadedLibChecker.find_incorrect_libs SystemUtil.os_choose("pia-service", "pia-daemon", "pia-daemon")
+            incorrectly_loaded_libs = LoadedLibChecker.find_incorrect_libs SystemUtil.os_choose("kyn-service", "kyn-daemon", "kyn-daemon")
             expect(incorrectly_loaded_libs).to be_empty, "the libraries #{incorrectly_loaded_libs} should have been loaded from PIA install"
         end
     end
@@ -16,7 +16,7 @@ describe "Dependency loading" do
     describe "client" do
         it "doesn't load system libraries" do
             begin
-                incorrectly_loaded_libs = LoadedLibChecker.find_incorrect_libs SystemUtil.os_choose("pia-client", "Private Internet Access", "pia-client")
+                incorrectly_loaded_libs = LoadedLibChecker.find_incorrect_libs SystemUtil.os_choose("kyn-client", "Kyn VPN", "kyn-client")
                 expect(incorrectly_loaded_libs).to be_empty, "the libraries #{incorrectly_loaded_libs} should have been loaded from PIA install"
             rescue ProcessNotFound => e
                 # pia-client is optional because we cannot run it in CI

@@ -5,7 +5,7 @@ class LoadedLibChecker
     def self.find_incorrect_libs(process_name, min_lib_count=5)
         incorrectly_loaded_libs = []
         pia_libs = OS_PIA_LIBRARIES[SystemUtil.os]
-        expected_prefix = SystemUtil.os_choose("C:\\Program Files\\Private Internet Access", "/Applications/Private Internet Access.app", "/opt/piavpn")
+        expected_prefix = SystemUtil.os_choose("C:\\Program Files\\Kyn VPN", "/Applications/Kyn VPN.app", "/opt/kynvpn")
         loaded_libs = SystemUtil.loaded_libs process_name
         if loaded_libs.count < min_lib_count
             # We must expect some libraries to be loaded, otherwise there must be an issue somewhere

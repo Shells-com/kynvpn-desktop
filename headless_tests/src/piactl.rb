@@ -6,7 +6,7 @@ require_relative 'systemutil'
 class PiaCtl
     # Set path to piactl from env if available.
     # Otherwise use whichever can be found in path
-    PIACTL = ENV['PIACTL'] || 'piactl'
+    PIACTL = ENV['PIACTL'] || 'kynctl'
 
     Protocols = ["openvpn", "wireguard"]
     
