@@ -7,7 +7,8 @@ name: Build
 # Qt:
 # - Linux and macOS use the open source Qt builds from Shells-com/kynvpn-qt
 #   (release KYNVPN_QT_TAG).
-# - Windows uses the official Qt binaries (installed with aqtinstall).
+# - Windows uses the official Qt binaries from download.qt.io (installed by
+#   .github/scripts/install-qt-official.py).
 #
 # Code signing is optional and enabled by repository secrets:
 # - macOS signing: MACOS_CERT_P12 (base64 .p12), MACOS_CERT_PASSWORD,
@@ -173,13 +174,13 @@ jobs:
         include:
           - arch: x86_64
             runner: windows-2025
-            aqt_host: windows
-            aqt_arch: win64_msvc2022_64
+            qt_host: windows_x86
+            qt_arch: win64_msvc2022_64
             qt_dir: msvc2022_64
           - arch: arm64
             runner: windows-11-arm
-            aqt_host: windows_arm64
-            aqt_arch: win64_msvc2022_arm64
+            qt_host: windows_arm64
+            qt_arch: win64_msvc2022_arm64
             qt_dir: msvc2022_arm64
     runs-on: ${{ matrix.runner }}
     env:
@@ -207,23 +208,16 @@ jobs:
         run: git lfs pull --exclude "$LFS_EXCLUDE"
       - uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.3'
+          # Oldest release with Windows arm64 builds
+          ruby-version: '3.4'
       - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
       - name: Install Qt
         run: |
-          python -m pip install --quiet aqtinstall
-          # download.qt.io intermittently fails checksum downloads; retry
-          for attempt in 1 2 3 4 5; do
-            if python -m aqt install-qt ${{ matrix.aqt_host }} desktop "$QT_VERSION" ${{ matrix.aqt_arch }} \
-                -m qtimageformats -O 'C:/Qt'; then
-              break
-            fi
-            [ "$attempt" = 5 ] && exit 1
-            echo "aqt failed, retrying in 30s"; sleep 30
-          done
-          test -d "C:/Qt/$QT_VERSION/${{ matrix.qt_dir }}/bin"
+          python -I .github/scripts/install-qt-official.py ${{ matrix.qt_host }} "$QT_VERSION" \
+            ${{ matrix.qt_arch }} 'C:/Qt' qtimageformats
+          test -f "C:/Qt/$QT_VERSION/${{ matrix.qt_dir }}/bin/windeployqt.exe"
           echo "QTROOT=C:/Qt/$QT_VERSION" >> "$GITHUB_ENV"
       - name: Prepare signing certificate
         env:
