@@ -67,21 +67,16 @@ module PiaWindows
             crtDir = File.join(crtDir, 'debug_nonredist')
         end
 
-        crtFound = false
-        for vcVer in ["VC143", "VC142"]
-            vcCrtDir = File.join(crtDir, arch,
-                Build::debug? ? 'Microsoft.'+vcVer+'.DebugCRT' : 'Microsoft.'+vcVer+'.CRT')
-            if File.exist?(vcCrtDir)
-                crtDir = vcCrtDir
-                crtFound = true
-                break
-            end
-            puts "Couldn't find " + vcVer
+        # The CRT directory is named after the toolset (Microsoft.VC143.CRT for
+        # VS 2022, newer for later releases); use the newest one available.
+        crtKind = Build::debug? ? 'DebugCRT' : 'CRT'
+        vcCrtDir = Dir.glob(File.join(crtDir, arch, "Microsoft.VC*.#{crtKind}"))
+            .max_by { |d| File.basename(d)[/VC(\d+)/, 1].to_i }
+        if vcCrtDir.nil? || File.basename(vcCrtDir)[/VC(\d+)/, 1].to_i < 142
+            raise "error: cannot find CRT in #{File.join(crtDir, arch)}. Install MSVC v142+"
         end
+        crtDir = vcCrtDir
         puts "Found VC #{crtDir}"
-        if !File.exist?(crtDir) or !crtFound
-            raise "error: cannot find CRT. Install MSVC v142+"
-        end
 
         msvcLibs.each do |l|
             libPath = File.join(crtDir, "#{l}#{Build.debug? ? 'd' : ''}.dll")
