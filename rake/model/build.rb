@@ -265,9 +265,9 @@ class Build
 
     # Minimum macOS version supported by the project.  (In addition to clang.rb,
     # also used in some generated Info.plist files.)
-    # Current minimum supported version is 10.15
-    MacosVersionMajor = 10
-    MacosVersionMinor = 15
+    # Current minimum supported version is 14.4 (required by Qt 6.12)
+    MacosVersionMajor = 14
+    MacosVersionMinor = 4
 
     # Shortcuts to check for specific build variants
     def self.debug?

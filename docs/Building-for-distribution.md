@@ -12,7 +12,7 @@ Set environment variables:
 |----------|-------|
 | PIA_SIGNTOOL_CERTFILE | Path to certificate file (if signing with PFX archived cert) |
 | PIA_SIGNTOOL_PASSWORD | Password to decrypt cert file (if signing with encrypted PFX archived cert) |
-| PIA_SIGNTOOL_THUMBRPINT | Thumbprint of certificate - signs with cert from cert store instead of PFX archive |
+| PIA_SIGNTOOL_THUMBPRINT | Thumbprint of certificate - signs with cert from cert store instead of PFX archive |
 
 Then call `rake BRAND=kyn VARIANT=release all`
 

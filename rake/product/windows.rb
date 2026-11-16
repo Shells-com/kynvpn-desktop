@@ -7,13 +7,19 @@ require_relative '../util/dsl.rb'
 module PiaWindows
     extend BuildDSL
 
+    # Code signing configuration (see docs/Building-for-distribution.md):
+    # - PIA_SIGNTOOL_CERTFILE (+ PIA_SIGNTOOL_PASSWORD): sign with a PFX file
+    # - PIA_SIGNTOOL_THUMBPRINT: sign with a certificate from the cert store
+    # - PIA_SIGNTOOL_CERTFILE + GOOGLE_CLOUD_KEY_ID: sign with a key held in
+    #   Google Cloud KMS (CERTFILE is then the public certificate)
     SignCertFile = ENV['PIA_SIGNTOOL_CERTFILE']
+    SignPassword = ENV['PIA_SIGNTOOL_PASSWORD']
+    # Also accept the misspelled name used by older docs
+    SignThumbprint = ENV['PIA_SIGNTOOL_THUMBPRINT'] || ENV['PIA_SIGNTOOL_THUMBRPINT']
     GCloudKeyId = ENV['GOOGLE_CLOUD_KEY_ID']
     SkipSigning = !ENV['PIA_SKIP_SIGNING'].nil?
-    CanSign = Build::release? && (SignCertFile != nil) && !SkipSigning
-    # Override this value manually if you need to test signing locally with a 
-    # dev cert
-    UseGCloudSigning = true
+    CanSign = Build::release? && (SignCertFile != nil || SignThumbprint != nil) && !SkipSigning
+    UseGCloudSigning = SignCertFile != nil && GCloudKeyId != nil
 
     # Base setup for uninstaller/installer; these are built from the same source
     # with either INSTALLER or UNINSTALLER defined

@@ -2,6 +2,7 @@ require_relative '../model/build.rb'
 require_relative '../util/util.rb'
 require_relative '../util/dsl.rb'
 require 'json'
+require 'open3'
 
 class MsvcToolchain
     include BuildDSL
@@ -72,32 +73,37 @@ class MsvcToolchain
         @rc = 'rc.exe'
     end
 
-    # Find Visual Studio path, prefer to use the version matching the Qt build
-    # Note: support for VS 2022 is experimental.
+    # Find the Visual Studio installation to use.
+    #
+    # vswhere (shipped with every VS 2017+ installer) is used first since it
+    # finds any edition and any release, including ones newer than the Qt
+    # build's MSVC version (MSVC 2019+ toolsets are ABI-compatible with each
+    # other).  The well-known install paths are checked as a fallback.
     def locateVisualStudio()
+        vswhere = File.join(ENV['ProgramFiles(x86)'].to_s.gsub('\\', '/'),
+                            'Microsoft Visual Studio/Installer/vswhere.exe')
+        if File.exist?(vswhere)
+            out, status = Open3.capture2(vswhere, '-latest', '-products', '*',
+                '-requires', 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64',
+                '-property', 'installationPath')
+            path = out.lines.first.to_s.strip.gsub('\\', '/')
+            return path if status.success? && !path.empty? && File.directory?(path)
+        end
+
+        # Prefer the VS release matching the Qt build
         qtVsVer = @qt.targetQtRoot.match(/msvc([0-9]+)/)[1]
-        # Check both Program Files locations for both VS versions
-        vsRoots = [
-            File.join(ENV['ProgramFiles'].gsub('\\', '/'), 'Microsoft Visual Studio', "2022"),
-            File.join(ENV['ProgramFiles(x86)'].gsub('\\', '/'), 'Microsoft Visual Studio', "2022"),
-            File.join(ENV['ProgramFiles'].gsub('\\', '/'), 'Microsoft Visual Studio', "2019"),
-            File.join(ENV['ProgramFiles(x86)'].gsub('\\', '/'), 'Microsoft Visual Studio', "2019"),
-        ].sort { |path| path.end_with?(qtVsVer) ? 0 : 1 }
-        vsRoot = vsRoots[0]
-        # Keep the first valid VS installation we find
-        for root in vsRoots
-            vsEdition = Util.find(['Professional','Community','BuildTools','Enterprise']) do |e|
-                File.exist?(File.join(root, e))
-            end
-            if vsEdition
-                vsRoot = root
-                break
+        vsRoots = ['2022', '2019'].flat_map do |ver|
+            [ENV['ProgramFiles'], ENV['ProgramFiles(x86)']].compact.map do |pf|
+                File.join(pf.gsub('\\', '/'), 'Microsoft Visual Studio', ver)
             end
         end
-        if !vsEdition
-            raise "Could not locate a valid VS installation"
+        vsRoots = vsRoots.partition { |path| path.end_with?(qtVsVer) }.flatten
+        vsRoots.each do |root|
+            ['Professional','Community','BuildTools','Enterprise'].each do |e|
+                return File.join(root, e) if File.exist?(File.join(root, e))
+            end
         end
-        File.join(vsRoot, vsEdition)
+        raise "Could not locate a valid VS installation"
     end
 
     # Within compile() or link(), check that the arch specified was the one that
