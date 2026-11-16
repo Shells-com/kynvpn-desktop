@@ -186,6 +186,7 @@ module PiaUnitTest
                 puts "test: #{t}"
                 testBin = testExec.target
                 cmd = ''
+                testLog = nil
                 covData = coverageRawBuild.artifact("coverage_#{t}.raw")
                 opensslLibPath = File.absolute_path(File.join('deps/built',
                                                               Build.selectDesktop('win', 'mac', 'linux'),
@@ -197,7 +198,10 @@ module PiaUnitTest
                         opensslLibPath,
                         ENV['PATH']
                     ]
-                    cmd = Util.cmd("set \"PATH=#{path.join(';')}\" & set \"UNIT_TEST_LIB=#{opensslLibPath}\" & \"#{testBin}\"")
+                    # QtTest's own output doesn't reach the console here when
+                    # run through cmd.exe, so write it to a file and print it
+                    testLog = File.join(File.dirname(testBin), "test-#{t}.txt")
+                    cmd = Util.cmd("set \"PATH=#{path.join(';')}\" & set \"UNIT_TEST_LIB=#{opensslLibPath}\" & \"#{testBin}\" -o \"#{testLog}\",txt")
                 elsif Build.macos?
                     cmd = "LLVM_PROFILE_FILE=\"#{covData}\" UNIT_TEST_LIB=\"#{opensslLibPath}\" \"#{testBin}\""
                 elsif Build.linux?
@@ -207,7 +211,13 @@ module PiaUnitTest
                     ]
                     cmd = "LD_LIBRARY_PATH=\"#{libPath.join(':')}\" LLVM_PROFILE_FILE=\"#{covData}\" UNIT_TEST_LIB=\"#{opensslLibPath}\" \"#{testBin}\""
                 end
-               Util.shellRun cmd
+                begin
+                    Util.shellRun cmd
+                ensure
+                    if Build.windows? && File.exist?(testLog)
+                        puts File.read(testLog)
+                    end
+                end
             end
 
             task :build_tests_parallel => "test-#{t}"
