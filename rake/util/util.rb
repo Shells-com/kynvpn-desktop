@@ -126,7 +126,12 @@ module Util
             if !ok
                 # Escape cmd args for easier debugging
                 escaped_cmd = cmd.map { |arg| arg.include?(' ') ? "\"#{arg}\"" : arg }.join(' ')
-                raise "Command failed: #{escaped_cmd}"
+                # Include the exit status; on Windows, crashes and loader
+                # failures show up as NTSTATUS codes (e.g. 0xC0000135 = DLL
+                # not found)
+                status = res.exitstatus
+                statusText = status.nil? ? res.to_s : "#{status} (0x#{(status & 0xFFFFFFFF).to_s(16).upcase})"
+                raise "Command failed with exit status #{statusText}: #{escaped_cmd}"
             end
         end
     end
