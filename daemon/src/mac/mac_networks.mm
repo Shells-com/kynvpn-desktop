@@ -557,7 +557,9 @@ void MacNetworks::readConnections()
     // matter.  Errors writing are ignored.
     unsigned char zero = 0;
     if(signalSocket)
-        ::write(signalSocket.get(), &zero, sizeof(zero));
+    {
+        [[maybe_unused]] auto written = ::write(signalSocket.get(), &zero, sizeof(zero));
+    }
 }
  - (void) bssidDidChangeForWiFiInterfaceWithName:(NSString*)interfaceName {}
  - (void) clientConnectionInterrupted {}

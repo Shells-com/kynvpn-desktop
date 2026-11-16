@@ -22,6 +22,7 @@
 #include "posixfdnotifier.h"
 #include <cassert>
 #include <unistd.h>
+#include <cerrno>
 
 namespace kapps { namespace core {
 
@@ -274,7 +275,14 @@ void PollThread::enqueue(Any item)
     }
     // Write to the signal pipe to signal the worker thread
     unsigned char data{};
-    ::write(_itemSignalPipe.get(), &data, sizeof(data));
+    ssize_t written;
+    do
+    {
+        written = ::write(_itemSignalPipe.get(), &data, sizeof(data));
+    }
+    while(written < 0 && errno == EINTR);
+    if(written < 0)
+        KAPPS_CORE_WARNING() << "Unable to signal poll thread:" << ErrnoTracer{};
 }
 
 void PollThread::queueInvoke(std::function<void()> func)

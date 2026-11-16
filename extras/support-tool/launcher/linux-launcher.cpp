@@ -47,8 +47,14 @@ int fork_execv(gid_t gid, char *filename, char *const argv[])
     // child - call execv()
     if(forkResult == 0)
     {
-        // Apply gid as both real and effective
-        setregid(gid, gid);
+        // Apply gid as both real and effective.  Don't exec with the
+        // launcher's group if this fails.
+        if(setregid(gid, gid) != 0)
+        {
+            std::cerr << "setregid err: " << errno << " - " << strerror(errno)
+                << std::endl;
+            std::exit(-1);
+        }
 
         int execErr = execv(filename, argv);
         std::cerr << "exec err: " << execErr << " / " << errno << " - "

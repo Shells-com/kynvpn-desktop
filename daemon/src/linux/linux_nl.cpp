@@ -657,7 +657,7 @@ LinuxNl::~LinuxNl()
     // thread is still starting, this blocks until it provides the kill socket.
     unsigned char term = 0;
     kapps::core::PosixFd killSocket = _workerKillSocket.get();
-    if(killSocket)
-        ::write(killSocket.get(), &term, sizeof(term));
+    if(killSocket && ::write(killSocket.get(), &term, sizeof(term)) < 0)
+        qWarning() << "Unable to signal netlink worker:" << errno;
     _workerThread.join();
 }

@@ -300,6 +300,9 @@ class ClangToolchain
         params += langCompileOpts
         params += [
             '-g',   # Generate debug information
+            # The bundled breakpad dump_syms can't read DWARF 5, which newer
+            # clang releases emit by default
+            '-gdwarf-4',
             '-Wall',
             '-Wextra',
             '-pipe',
