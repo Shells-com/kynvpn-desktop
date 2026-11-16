@@ -25,7 +25,7 @@ Set environment variables:
 | PIA_CODESIGN_CERT | Common name of the signing certificate.  Must be the complete common name, not a partial match. |
 | PIA_APPLE_ID_EMAIL | Apple ID used to notarize build. |
 | PIA_APPLE_ID_PASSWORD | Password to Apple ID for notarization. |
-| PIA_APPLE_ID_PROVIDER | (Optional) Provider to use if Apple ID is member of multiple teams. |
+| PIA_APPLE_TEAM_ID | Team ID used to notarize build. |
 
 Then call `rake BRAND=kyn VARIANT=release ARCHITECTURE=universal all`
 
@@ -33,42 +33,37 @@ A certificate is required for the Mac build to be installable (even for local bu
 
 ### Linux
 
-#### Linux build environment
-
-All final artifacts shipped with Kyn VPN Desktop are now built using a Debian 11 Bullseye Docker container to maximize compatibility and ease of environment management.
-
-Cross builds are still possible - release artifacts for armhf and arm64 are cross-compiled from an x86_64 host.
-
-Instead of a chroot setup, we now utilize Docker containers. The Docker container can be set up with a single command, and you can enter the container environment as needed without special scripts. This approach simplifies the process and makes it more accessible across different systems.
-
-The Qt installation must be in $HOME or /opt to be accessible in the Docker container. If this repository is not under $HOME, additional steps may be required to ensure it is accessible within the Docker environment.
-
-#### Host architecture builds
-
-Commands are executed from the repository root.
-This setup supports `amd64`, `arm64`, and `armhf` hosts.
-Additional architectures can be supported by adjusting the Docker container accordingly.
+Release artifacts are built in an AlmaLinux 9 container, the same environment
+[kynvpn-qt](https://github.com/Shells-com/kynvpn-qt) builds Qt in, so the
+client runs on anything with glibc 2.34 or newer.  x86_64 and arm64 are built
+natively (no cross builds).  See the `linux` job in
+[`.github/workflows/build.yml`](../.github/workflows/build.yml) for the exact
+package list; locally:
 
 ```shell
-# Set up the Docker container:
-$ docker build . -f .github/workflows/docker/linux_builder.dockerfile -t pia_builder:latest
-$ docker run -it pia_builder:latest bash
-# Now, build inside Docker:
-$$ rake VARIANT=release BRAND=kyn all
+$ docker run --rm -it -v "$PWD":/src -w /src almalinux:9 bash
+# Inside the container: install the packages from the workflow's "Install
+# build dependencies" step, then install Qt:
+$$ sh qt-6.12.0-kynvpn-linux-x86_64.run -- /opt/Qt-kynvpn --yes
+$$ git config --global --add safe.directory /src
+$$ QTROOT=/opt/Qt-kynvpn/6.12.0 rake VARIANT=release BRAND=kyn all
 ```
 
-#### Cross builds
+## GitHub Actions
 
-This example uses an x86_64 host to build `arm64` (64 bit); `armhf` is also supported (32-bit hard float).
+[`.github/workflows/build.yml`](../.github/workflows/build.yml) builds every
+platform on each push to `master` and on pull requests, and keeps the outputs
+of `rake artifacts` as workflow artifacts.  Pushing a `v<version>` tag (e.g.
+`v1.0.0`) also sets the product version and creates a draft release with the
+installers.
 
-We build in much the same way as a host architecture build, only using the arm builder docker image with the corresponding arm architecture:
+Signing is enabled by repository secrets; builds are unsigned without them:
 
-```shell
-# Set up the Docker container:
-$ ARM_ARCH=arm64 # Can be arm64 or armhf
-$ docker build . -f .github/workflows/docker/linux_arm_builder.dockerfile --build-arg="CROSS_ARCH=${ARM_ARCH}" -t pia_${ARM_ARCH}_builder:latest
-$ docker run --mount type=bind,source="$(pwd)",target=/pia -e ARM_ARCH=${ARM_ARCH} -it pia_${ARM_ARCH}_builder:latest bash
-# Now, build inside Docker:
-$$ rake VARIANT=release BRAND=kyn ARCHITECTURE=${ARM_ARCH} all
-```
-
+| Secret | Use |
+|--------|-----|
+| `MACOS_CERT_P12` | Base64-encoded .p12 with the Developer ID Application certificate and key |
+| `MACOS_CERT_PASSWORD` | Password of the .p12 |
+| `MACOS_CODESIGN_IDENTITY` | Common name of the certificate (becomes `PIA_CODESIGN_CERT`) |
+| `APPLE_ID`, `APPLE_APP_PASSWORD`, `APPLE_TEAM_ID` | Notarization credentials (app-specific password) |
+| `WINDOWS_CERT_PFX` | Base64-encoded .pfx code signing certificate |
+| `WINDOWS_CERT_PASSWORD` | Password of the .pfx |

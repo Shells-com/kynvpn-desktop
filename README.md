@@ -4,11 +4,11 @@ This is the desktop client for the [Kyn VPN](https://www.kynvpn.com) service. It
 
 Kyn VPN Desktop is a fork of the [Private Internet Access Desktop Client](https://github.com/pia-foss/desktop), released under the GPLv3. The upstream copyright notices are retained in the source files.
 
-The project uses Qt 6.2 for cross-platform development, both in the client and daemon. The client GUI is based on Qt Quick, which uses declarative markup language and JavaScript and offers hardware accelerated rendering when available. Qt and Qt Quick tend to be more memory and CPU efficient compared to web-based UI frameworks like Electron or NW.js.
+The project uses Qt 6.12 for cross-platform development, both in the client and daemon. The client GUI is based on Qt Quick, which uses declarative markup language and JavaScript and offers hardware accelerated rendering when available. Qt and Qt Quick tend to be more memory and CPU efficient compared to web-based UI frameworks like Electron or NW.js.
 
 ## Building and developing
 
-The client is intended to be built on the target platform; Windows builds are built on Windows, macOS builds on macOS, and Linux builds on Debian.
+The client is intended to be built on the target platform; Windows builds are built on Windows, macOS builds on macOS, and Linux builds on Linux.  [GitHub Actions](.github/workflows/build.yml) builds every platform.
 
 The entire product is built using rake, using the supporting framework in the `rake/` directory.
 
@@ -37,59 +37,35 @@ Filtering content: 100% (24/24), 17.13 MiB | 1.89 MiB/s, done.
 
 ### Prerequisites
 
+The client uses Qt 6.12.  Linux and macOS builds use the open source Qt builds from [Shells-com/kynvpn-qt](https://github.com/Shells-com/kynvpn-qt/releases); Windows builds use the official Qt binaries.  `rake/model/qt.rb` finds Qt under `C:/Qt*/6.*` (Windows), `/opt/Qt*/6.*` or `$HOME/Qt*/6.*`; set `QTROOT` (e.g. `C:\Qt\6.12.0`) to pick one explicitly.
+
 - On **Windows** (x86_64, arm64):
-  - Using git from git bash instead of powershell is recommended, due to some knows bugs in Windows built-in openssh service in regards to git-lfs. 
+  - Using git from git bash instead of powershell is recommended, due to some knows bugs in Windows built-in openssh service in regards to git-lfs.
   - Use chocolatey from an admin powershell session [chocolatey.org/install](https://chocolatey.org/install) running:
     - `choco install ruby 7Zip git git-lfs`
-  - [Qt 6.2.4](https://www.qt.io/download)
-    - Follow this process if you want to be able to fully debug into Qt code and QML:  
-      - Download Qt from the official website: https://www.qt.io/download-open-source, scroll down and click "Download the Qt Online Installer"
-      - The installer name should look like this "qt-unified-windows-x64-4.6.0-online.exe"
-      - You will need to create an account and login
-      - Select path C:\Qt and "Custom installation"
-      - When selecting components check these boxes:
-        - Qt / Qt 6.2.4 / MSVC2019 32-bit, MSVC2019 64-bit, Sources, Qt Debug Information Files
-        - Qt / Developer and Designer Tools / Qt Creator, ...CDB Debugger support, Debugging Tools for Windows, CMake
-      - (optional) If you have multiple installations of Qt, set user environment variable `QTROOT` to `C:\Qt\6.2.4`
-    - Otherwise, use aqtinstall if you just need to build the client:  
-      - Run these commands in Powershell with admin priviledges
-      - `choco install python`
-      - Close Powershell and open a new Admin instance
-      - `pip install aqtinstall`
-      - `mkdir C:\Qt-aqt`
-      - `aqt install-qt -O "C:/Qt-aqt" windows desktop 6.2.4 win64_msvc2019_64`
-      - (optional for windows arm64) 
-        - `aqt install-qt -O "C:/Qt-aqt" windows desktop 6.2.4 win64_msvc2019_arm64`
-      - (optional) If you have multiple installations of Qt
-        - set user environment variable `QTROOT` to `C:\Qt-aqt\6.2.4`
-  - [Visual Studio 2022](https://visualstudio.microsoft.com/vs/)
+  - Qt 6.12.0 for MSVC 2022 (`msvc2022_64` or `msvc2022_arm64`), with the Qt Image Formats module:
+    - Either the [Qt online installer](https://www.qt.io/download-open-source) (needs a Qt account; select "Custom installation" and add *Sources* and *Qt Debug Information Files* to debug into Qt)
+    - Or, without an account: `python .github/scripts/install-qt-official.py windows_x86 6.12.0 win64_msvc2022_64 C:/Qt qtimageformats` (use `windows_arm64` / `win64_msvc2022_arm64` on arm64), the same script CI uses
+  - [Visual Studio 2022](https://visualstudio.microsoft.com/vs/) or newer, with the C++ desktop workload
      - Can install with choco with `choco install visualstudio2022community`
-     - Once installed, open the `Visual Studio Installer` app.
-     - Click on "More" -> "Import configuration"
-     - Select the config file in `scripts-internal/pia-default.vsconfig`
-     - It will install everything you should need, but you can add more components as needed.
      - The VS installer doesn't include the Console Debugger (CDB), which is needed to debug in Qt Creator.  More info: [Setting Up Debugger](https://doc.qt.io/qtcreator/creator-debugger-engines.html)
 - On **macOS**:
-  - Qt 6.2.4
-    - The universal Qt build from upstream PIA is recommended: [desktop-dep-build releases](https://github.com/pia-foss/desktop-dep-build/releases)
-    - The universal Qt build can be used for universal or single-architecture builds.
+  - Qt 6.12.0 universal build from [kynvpn-qt releases](https://github.com/Shells-com/kynvpn-qt/releases) (`qt-6.12.0-kynvpn-macos-universal.run`)
+    - It can be used for universal or single-architecture builds.
     - If you want Qt Creator, also install Qt from [qt.io](https://www.qt.io/download)
-  - Big Sur or newer is required to build
-  - Up-to-date version of Xcode
+  - Xcode 16 or newer (macOS 15 SDK); the app requires macOS 14.4 or newer, like Qt 6.12
   - Ruby, can be installed using [Homebrew](https://brew.sh) with `brew install ruby`
   - Install rake: `sudo gem install rake`
 - On **Linux**:
-  - Supported distribution with clang 11 or newer
+  - A distribution with glibc 2.34 or newer (the kynvpn-qt packages are built on AlmaLinux 9) and clang 13 or newer
   - Supported architectures: x86_64, arm64
-  - Qt 6.2.4 or later
-    - The Qt build from upstream PIA is recommended: [desktop-dep-build releases](https://github.com/pia-foss/desktop-dep-build/releases)
+  - Qt 6.12.0 from [kynvpn-qt releases](https://github.com/Shells-com/kynvpn-qt/releases) (`qt-6.12.0-kynvpn-linux-<arch>.run`)
     - If you want Qt Creator, also install Qt from [qt.io](https://www.qt.io/download)
-  - Host build (Debian 11+ and derivatives):
-    - `sudo apt install build-essential rake clang mesa-common-dev libnl-3-dev libnl-route-3-dev libnl-genl-3-dev git git-lfs`
+  - Host build (Debian 12+ and derivatives):
+    - `sudo apt install build-essential rake clang llvm mesa-common-dev libgl-dev libnl-3-dev libnl-route-3-dev libnl-genl-3-dev git git-lfs zip`
   - Host build (Arch and derivatives):
     - `sudo pacman -S base-devel git-lfs ruby-rake clang llvm libnl zip`
-  - Debian 11 docker image build (used to build published releases for maximum compatibility, and for cross builds)
-    - See [Building for Distribution](docs/Building-for-distribution.md)
+  - Published releases are built in an AlmaLinux 9 container, see [Building for Distribution](docs/Building-for-distribution.md)
 
 ### Running and debugging
 
@@ -105,7 +81,7 @@ To debug your own daemon, the installed daemon must first be stopped:
 The daemon must run as root. Consult your IDE/debugger documentation for how to safely run the debugger target as root.
 
 **Windows** only: 
-  - If you have installed Qt using the official installer, add `C:\Qt\6.2.4\msvc2019_64\bin` to your user environment variable path.   
+  - If Qt is not in your PATH, add `C:\Qt\6.12.0\msvc2022_64\bin` to your user environment variable path.   
     This is needed if you want to run `kyn-client.exe` or `kyn-service.exe` via command line.
   - To run the kyn-daemon, execute `.\kyn-service.exe run` in Powershell with admin privileges
 
@@ -162,7 +138,7 @@ Some additional environment variables can be configured:
 
 | Variable | Example | Explanation |
 |----------|---------|-------------|
-| `QTROOT` | /opt/Qt/6.2.4 | Path to the installed Qt version, if qt.rb can't find it or you want to force a specific version |
+| `QTROOT` | /opt/Qt/6.12.0 | Path to the installed Qt version, if qt.rb can't find it or you want to force a specific version |
 
 ### Mac installation
 
