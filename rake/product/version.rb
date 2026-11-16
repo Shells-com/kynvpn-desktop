@@ -239,6 +239,8 @@ class PiaVersion
         brandh.defineString('BRAND_WINTUN_ARM64_PRODUCT', Build::BrandInfo['wintunArm64Product'])
         brandh.defineString('BRAND_UPDATE_JSON_KEY_NAME', Build::BrandInfo['updateJsonKeyName'])
         brandh.defineString('BRAND_LINUX_APP_NAME', Build::BrandInfo['linuxAppName'])
+        brandh.defineString('BRAND_COMPANY_NAME', Build::BrandInfo['brandCompanyName'] || @productName)
+        brandh.defineString('BRAND_WEBSITE_LINK', Build::BrandInfo['brandWebsiteLink'] || '')
         brandh.defineLiteral('BRAND_LINUX_FWMARK_BASE', Build::BrandInfo['linuxFwmarkBase'].to_s)
         brandh.defineLiteral('BRAND_LINUX_CGROUP_BASE', Build::BrandInfo['linuxCgroupBase'].to_s)
         brandh.defineRawString('BRAND_PARAMS', JSON.generate(Build::BrandInfo))
@@ -275,11 +277,11 @@ class PiaVersion
         end
         version
     end
-    # The branded product name ("Private Internet Access" in the PIA brand)
+    # The branded product name ("Kyn VPN" in the Kyn VPN brand)
     def productName
         @productName
     end
-    # The short name for the product ("PIA" in the PIA brand)
+    # The short name for the product ("Kyn VPN" in the Kyn VPN brand)
     def productShortName
         @productShortName
     end

@@ -55,15 +55,15 @@ BEGIN
     BEGIN
         BLOCK "040904B0"    // US English, Unicode
         BEGIN
-            VALUE "CompanyName",      "Private Internet Access Incorporated"
-            VALUE "FileDescription",  "Private Internet Access"
+            VALUE "CompanyName",      "E Shells Inc."
+            VALUE "FileDescription",  "Kyn VPN"
             VALUE "FileVersion",      PIA_WIN_VERSION_STR
-            VALUE "InternalName",     "pia-client.exe"
+            VALUE "InternalName",     "kyn-client.exe"
             VALUE "LegalCopyright",   ""
             VALUE "LegalTrademarks1", ""
             VALUE "LegalTrademarks2", ""
-            VALUE "OriginalFilename", "pia-client.exe"
-            VALUE "ProductName",      "Private Internet Access"
+            VALUE "OriginalFilename", "kyn-client.exe"
+            VALUE "ProductName",      "Kyn VPN"
             VALUE "ProductVersion",   PIA_WIN_VERSION_STR
         END
     END

@@ -34,7 +34,7 @@ class Build
 
     # Select a build configuration based on environment variables, or use
     # defaults for the host platform if unspecified
-    Brand = ENV['BRAND'] || 'pia'
+    Brand = ENV['BRAND'] || 'kyn'
 
     puts "Building #{Build::Brand} version v#{VersionBase}#{"." if !VersionPrerelease.empty?}#{VersionPrerelease}"
 
@@ -244,7 +244,7 @@ class Build
     BrandInfo = JSON.parse(File.read(File.join('brands', Brand,
                            'brandinfo.json')))
     # The DNS-style identifier for this product
-    # ('com.privateinternetaccess.vpn' in the PIA brand)
+    # ('com.kynvpn.vpn' in the Kyn VPN brand)
     ProductIdentifier = BrandInfo['brandIdentifier']
 
     # If building in a piabuild chroot environment on Linux, include the

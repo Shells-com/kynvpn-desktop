@@ -45,9 +45,9 @@ else()
 endif()
 
 if(DEFINED ENV{BRAND})
-    set(BRAND ENV{BRAND})
+    set(BRAND $ENV{BRAND})
 else()
-    set(BRAND "pia")
+    set(BRAND "kyn")
 endif()
 
 # The brand name is needed on Mac to define the staging root and client target.
@@ -210,7 +210,14 @@ target_link_libraries(client Qt6::Core Qt6::Network Qt6::Qml Qt6::Quick Qt6::Qui
 # so we don't have to repeat them all in the build script.
 # Use the generated QRC file, although this means a build must be performed for
 # Qt Creator to find QML sources.
-target_sources(client PRIVATE "${RAKE_OUT}/Private Internet Access/qrc_Private Internet Access.qrc")
+# The client executable is named after the product on macOS, and
+# "<brand>-client" elsewhere (see rake/product/desktop.rb)
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    set(CLIENT_EXE_NAME "${BRAND_NAME}")
+else()
+    set(CLIENT_EXE_NAME "${BRAND}-client")
+endif()
+target_sources(client PRIVATE "${RAKE_OUT}/${CLIENT_EXE_NAME}/qrc_${CLIENT_EXE_NAME}.qrc")
 
 stage_target(daemon daemon "${BRAND}-service" "${BRAND}-daemon" "${BRAND}-daemon")
 target_link_libraries(daemon Qt6::Core Qt6::Network)
