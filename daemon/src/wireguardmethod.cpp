@@ -1075,7 +1075,11 @@ void WireguardMethod::fixDNS(const QByteArray &existingContent, const QByteArray
 
     // Open resolv.conf for writing
     QFile resolvConf{"/etc/resolv.conf"};
-    resolvConf.open(QFile::WriteOnly | QIODevice::Text);
+    if(!resolvConf.open(QFile::WriteOnly | QIODevice::Text))
+    {
+        qWarning() << "Unable to open /etc/resolv.conf for writing:" << resolvConf.errorString();
+        return;
+    }
 
     // Write the nameservers we expect
     resolvConf.write(expectedContent);
@@ -1083,8 +1087,10 @@ void WireguardMethod::fixDNS(const QByteArray &existingContent, const QByteArray
 
     // Backup the contents of /etc/resolv.conf
     QFile resolvConfBackup{Path::DaemonDataDir/QStringLiteral("pia.resolv.conf")};
-    resolvConfBackup.open(QFile::WriteOnly | QIODevice::Text);
-    resolvConfBackup.write(existingContent);
+    if(resolvConfBackup.open(QFile::WriteOnly | QIODevice::Text))
+        resolvConfBackup.write(existingContent);
+    else
+        qWarning() << "Unable to write resolv.conf backup:" << resolvConfBackup.errorString();
 }
 
 void WireguardMethod::checkDNS()
@@ -1102,7 +1108,11 @@ void WireguardMethod::checkDNS()
         QFile resolvConf{"/etc/resolv.conf"};
 
         // Open for reading
-        resolvConf.open(QFile::ReadOnly | QIODevice::Text);
+        if(!resolvConf.open(QFile::ReadOnly | QIODevice::Text))
+        {
+            qWarning() << "Unable to read /etc/resolv.conf:" << resolvConf.errorString();
+            return;
+        }
 
         QByteArray existingContent{resolvConf.readAll()};
         QByteArray expectedContent{entries.join('\n').append('\n').toLatin1()};

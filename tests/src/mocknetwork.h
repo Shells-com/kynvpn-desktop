@@ -43,8 +43,9 @@ public:
     MockNetworkReply(QByteArray body)
         : _body{std::move(body)}, _buffer{&_body}
     {
-        open(ReadOnly | Unbuffered);
-        _buffer.open(ReadOnly);
+        // In-memory devices; these cannot fail
+        static_cast<void>(open(ReadOnly | Unbuffered));
+        static_cast<void>(_buffer.open(ReadOnly));
     }
 
 public:

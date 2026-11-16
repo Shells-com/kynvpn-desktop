@@ -46,7 +46,8 @@ void PayloadBuilder::start()
 
     // Create a new file in the payload called "logs.txt" which will contain all logs added via addLogFile
     _combinedLogFile.reset(new QFile(payloadPath("logs.txt")));
-    _combinedLogFile->open(QIODevice::WriteOnly);
+    if(!_combinedLogFile->open(QIODevice::WriteOnly))
+        qWarning() << "Unable to create combined log file:" << _combinedLogFile->errorString();
     _payloadZipContent.clear();
 }
 
@@ -83,7 +84,8 @@ bool PayloadBuilder::finish(const QString &copyToPath)
         QFile resultFile(_targetDir->filePath(PAYLOAD_FILE));
         qDebug() << (_targetDir->filePath(PAYLOAD_FILE));
         if(resultFile.exists()) {
-            resultFile.open(QIODevice::ReadOnly);
+            if(!resultFile.open(QIODevice::ReadOnly))
+                qWarning() << "Unable to read payload:" << resultFile.errorString();
             _payloadZipContent.append(resultFile.readAll());
             resultFile.close();
 
@@ -190,7 +192,11 @@ void PayloadBuilder::addLogFile(const QString &fullPath)
         }
 
         QFile file(fi.filePath());
-        file.open(QFile::ReadOnly);
+        if(!file.open(QFile::ReadOnly))
+        {
+            _combinedLogFile->write(QStringLiteral("Unable to read file: %1\n").arg(file.errorString()).toUtf8());
+            return;
+        }
         _combinedLogFile->write(file.readAll());
         file.close();
     }

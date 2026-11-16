@@ -292,7 +292,11 @@ QString NativeHelpers::readResourceText(const QString &path)
     }
 
     QFile file(path.mid(3));
-    file.open(QIODevice::ReadOnly);
+    if(!file.open(QIODevice::ReadOnly))
+    {
+        qWarning() << "Unable to open resource:" << path;
+        return QStringLiteral("");
+    }
     QString result = QString::fromUtf8(file.readAll());
     file.close();
     return result;

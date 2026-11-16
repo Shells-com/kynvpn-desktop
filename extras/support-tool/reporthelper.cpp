@@ -312,7 +312,8 @@ bool ReportHelper::checkDumpFileAgainstBlacklist(const QString &dmpPath) const
               << "ig10umd64.dll";
 
     QFile file(dmpPath);
-    file.open(QIODevice::ReadOnly);
+    if(!file.open(QIODevice::ReadOnly))
+        return false;
 
     // if file is larger than 5 MB then it's too large to process.
     if(file.size() > 5000000) {
@@ -419,7 +420,8 @@ bool checkDisableHardwareGraphicsValue (const QString &settingsPath, bool *value
   QFileInfo sfi(settingsPath);
   if(sfi.exists() && sfi.isReadable()) {
     QFile settingsFile(sfi.filePath());
-    settingsFile.open(QIODevice::ReadOnly);
+    if(!settingsFile.open(QIODevice::ReadOnly))
+        return false;
     QJsonParseError error;
     QJsonDocument settings = QJsonDocument::fromJson(settingsFile.readAll(), &error);
     settingsFile.close();

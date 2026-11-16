@@ -37,7 +37,8 @@ namespace TestResource
     {
         init();
         QFile file{path};
-        file.open(QIODevice::OpenModeFlag::ReadOnly | QIODevice::OpenModeFlag::Text);
+        if(!file.open(QIODevice::OpenModeFlag::ReadOnly | QIODevice::OpenModeFlag::Text))
+            qFatal("Unable to open test resource %s", qPrintable(path));
         return file.readAll();
     }
 }

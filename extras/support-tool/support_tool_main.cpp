@@ -42,10 +42,12 @@ void myMessageOutput(QtMsgType type, const QMessageLogContext &context, const QS
 {
     QByteArray localMsg = msg.toUtf8();
     QFile logFile(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/pia-reporter.log");
-    logFile.open(QIODevice::WriteOnly | QIODevice::Append);
-    logFile.write(localMsg);
-    logFile.write("\n");
-    logFile.close();
+    if(logFile.open(QIODevice::WriteOnly | QIODevice::Append))
+    {
+        logFile.write(localMsg);
+        logFile.write("\n");
+        logFile.close();
+    }
 
     (*QT_DEFAULT_MESSAGE_HANDLER)(type, context, msg);
 }
