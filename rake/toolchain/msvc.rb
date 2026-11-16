@@ -350,7 +350,7 @@ class MsvcToolchain
     end
 
     # Compile a source file with cl.exe
-    def clCompile(sourceFile, objectFile, depFile, macros, includeDirs, runtime)
+    def clCompile(sourceFile, objectFile, depFile, macros, includeDirs, runtime, cppStandard = nil)
         params = [
             Build::CompilerLauncher, @cl, '/nologo',
             '/c', # Compile only, don't link
@@ -358,7 +358,7 @@ class MsvcToolchain
             '/Zi', # Generate separate PDB file
             '/EHsc', # C++ stack unwinding; extern "C" functions can't throw
             # Omit /TP or /TC, let cl.exe decide source type based on extension
-            '/std:c++17', # Use C++17
+            "/std:c++#{cppStandard || 17}", # C++17 unless the module asks for newer
             '/Zc:rvalueCast', # Use proper type conversion conformance
             '/utf-8', # Source and target charsets are UTF-8
             '/we4834', # Discarding value marked [nodiscard] is an error
@@ -431,7 +431,7 @@ class MsvcToolchain
             rcCompile(sourceFile, objectFile, macros, includeDirs)
         else
             clCompile(sourceFile, objectFile, depFile, macros, includeDirs,
-                      options[:runtime])
+                      options[:runtime], options[:cppStandard])
         end
     end
 

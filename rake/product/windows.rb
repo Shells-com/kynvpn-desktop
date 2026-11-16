@@ -231,6 +231,9 @@ module PiaWindows
         # various modules, so this level of indirection avoids introducing a hard
         # dependency on any of those modules from the client itself.
         winrtsupport = Executable.new("#{Build::Brand}-winrtsupport", :dynamic)
+            # C++/WinRT needs C++20 coroutines; with C++17 it uses
+            # <experimental/coroutine>, which current MSVC releases reject
+            .cppStandard(20)
             .source('extras/winrtsupport/src')
             .use(commonlib.export)
             .install(stage, '/')

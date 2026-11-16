@@ -133,7 +133,8 @@ class Executable
             interface: :console,
             coverage: false,
             forceLinkSymbols: [],
-            autoInfoPlist: true
+            autoInfoPlist: true,
+            cppStandard: nil
         }
 
         # Whether we have referenced QtCore yet; it's added the first time we
@@ -366,6 +367,13 @@ class Executable
     # Windows.
     def runtime(runtime)
         @options[:runtime] = runtime
+        self
+    end
+
+    # Use a newer C++ standard than the project default (C++17) for this
+    # module, e.g. 20.  Currently only applied by the MSVC toolchain.
+    def cppStandard(version)
+        @options[:cppStandard] = version
         self
     end
 
