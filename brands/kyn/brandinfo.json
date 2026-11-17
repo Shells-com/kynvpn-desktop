@@ -6,6 +6,7 @@
     "brandWebsiteLink": "https://www.kynvpn.com/",
     "brandPlatformRestUri": "https://ws.atonline.com/_rest/",
     "brandIpApiUri": "https://ip.kynvpn.com/clientinfo/ip/",
+    "brandServerListUri": "https://ip.kynvpn.com/",
     "brandHasClassicTray": true,
     "brandReleaseChannelGA": "release",
     "brandReleaseChannelBeta": "beta",

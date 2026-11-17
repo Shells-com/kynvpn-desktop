@@ -246,6 +246,8 @@ class PiaVersion
         brandh.defineString('BRAND_PLATFORM_REST', Build::BrandInfo['brandPlatformRestUri'])
         # Public IP lookup service (the client requests "v1" under it)
         brandh.defineString('BRAND_IP_API', Build::BrandInfo['brandIpApiUri'])
+        # Server list service (vpninfo/servers/v6, vpninfo/regions/v2)
+        brandh.defineString('BRAND_SERVER_LIST_API', Build::BrandInfo['brandServerListUri'])
         brandh.defineLiteral('BRAND_LINUX_FWMARK_BASE', Build::BrandInfo['linuxFwmarkBase'].to_s)
         brandh.defineLiteral('BRAND_LINUX_CGROUP_BASE', Build::BrandInfo['linuxCgroupBase'].to_s)
         brandh.defineRawString('BRAND_PARAMS', JSON.generate(Build::BrandInfo))

@@ -265,7 +265,7 @@ void Environment::loadApiBases()
     loadDynamicApiBase(overridePresent, apiOverride, _pModernRegionsListApi,
                 QStringLiteral("modern_regions_list_api"),
                 QStringLiteral("modern regions list API"), QStringLiteral("/"), {
-                    QStringLiteral(BRAND_PLATFORM_REST "Network/VPN:serverlist?resource=/")
+                    QStringLiteral(BRAND_SERVER_LIST_API)
                 });
 
     // Public IP lookup ("v1": the IP, and whether it is a VPN server's).  The

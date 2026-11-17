@@ -85,7 +85,8 @@ namespace
     // Resource paths for various regions-related resource (relative to the API
     // base)
     const QString shadowsocksRegionsResource{QStringLiteral("shadow_socks")};
-    const QString modernRegionsResource{QStringLiteral("vpninfo/servers/v7")};
+    // The servers list is in the PIA v6 format (see buildModernLocations())
+    const QString modernRegionsResource{QStringLiteral("vpninfo/servers/v6")};
     const QString modernRegionMetaResource{QStringLiteral("vpninfo/regions/v2")};
 
     // Public IP lookup on the IP API: {"ip": "...", "connected": <bool>, ...}

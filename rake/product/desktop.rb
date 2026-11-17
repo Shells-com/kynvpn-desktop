@@ -143,10 +143,12 @@ module PiaDesktop
         # JSON resource build directory
         jsonFetched = Build.new('json-fetched')
         # These are the assets we need to fetch and the URIs we get them from
+        # (the same resources the daemon fetches, see daemon.cpp)
+        serverListUri = Build::BrandInfo['brandServerListUri']
         {
-            'modern_shadowsocks.json': 'https://serverlist.piaservers.net/shadow_socks',
-            'modern_servers.json': 'https://serverlist.piaservers.net/vpninfo/servers/v7',
-            'modern_region_meta.json': 'https://serverlist.piaservers.net/vpninfo/regions/v2'
+            'modern_shadowsocks.json': "#{serverListUri}shadow_socks",
+            'modern_servers.json': "#{serverListUri}vpninfo/servers/v6",
+            'modern_region_meta.json': "#{serverListUri}vpninfo/regions/v2"
         }.each do |k, v|
             fetchedFile = jsonFetched.artifact(k.to_s)
             serverDataDir = ENV['SERVER_DATA_DIR']
@@ -159,7 +161,17 @@ module PiaDesktop
                 else
                     # Fetch from the web API (write with "binary" mode so LF is not
                     # converted to CRLF on Windows)
-                    File.binwrite(t.name, Net::HTTP.get(URI(v)))
+                    response = Net::HTTP.get_response(URI(v))
+                    if response.is_a?(Net::HTTPSuccess)
+                        File.binwrite(t.name, response.body)
+                    elsif k == :'modern_shadowsocks.json'
+                        # Shadowsocks is optional; ship an empty list (the
+                        # daemon will still try to fetch it)
+                        puts "warning: #{v}: HTTP #{response.code}, shipping an empty list"
+                        File.binwrite(t.name, '[]')
+                    else
+                        raise "Can't fetch #{v}: HTTP #{response.code}"
+                    end
                 end
             end
             stage.install(fetchedFile, :res)
