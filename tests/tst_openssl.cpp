@@ -134,17 +134,17 @@ private slots:
     // created using the correct key, but are not valid for the payload given
     void testMismatchedSignatures()
     {
-        QTest::ignoreMessage(QtMsgType::QtWarningMsg, QRegularExpression{R"(^.*:error:02000068:rsa routines:ossl_rsa_verify:bad signature:crypto[\/\\]rsa[\/\\]rsa_sign\.c:430:\n$)"});
+        QTest::ignoreMessage(QtMsgType::QtWarningMsg, QRegularExpression{R"(^.*:error:02000068:rsa routines:ossl_rsa_verify:bad signature:(?:[^:]*[\/\\])?crypto[\/\\]rsa[\/\\]rsa_sign\.c:430:\n$)"});
         QVERIFY(!verifySignature(Environment::defaultRegionsListPublicKey, validSig2, samplePayload1));
 
-        QTest::ignoreMessage(QtMsgType::QtWarningMsg, QRegularExpression{R"(^.*:error:1C880004:Provider routines:rsa_verify:RSA lib:providers[\/\\]implementations[\/\\]signature[\/\\]rsa_sig\.c:788:\n$)"});
+        QTest::ignoreMessage(QtMsgType::QtWarningMsg, QRegularExpression{R"(^.*:error:1C880004:Provider routines:rsa_verify:RSA lib:(?:[^:]*[\/\\])?providers[\/\\]implementations[\/\\]signature[\/\\]rsa_sig\.c:788:\n$)"});
         QVERIFY(!verifySignature(Environment::defaultRegionsListPublicKey, validSig1, samplePayload2));
     }
     
     // Test that the garbage signature is rejected
     void testGarbageSignature()
     {
-        QTest::ignoreMessage(QtMsgType::QtWarningMsg, QRegularExpression{R"(^.*:error:02000068:rsa routines:ossl_rsa_verify:bad signature:crypto[\/\\]rsa[\/\\]rsa_sign\.c:430:\n$)"});
+        QTest::ignoreMessage(QtMsgType::QtWarningMsg, QRegularExpression{R"(^.*:error:02000068:rsa routines:ossl_rsa_verify:bad signature:(?:[^:]*[\/\\])?crypto[\/\\]rsa[\/\\]rsa_sign\.c:430:\n$)"});
         QVERIFY(!verifySignature(Environment::defaultRegionsListPublicKey, garbageSig, samplePayload1));
     }
 
@@ -155,7 +155,7 @@ private slots:
         QVERIFY(verifySignature(bogusPubKey, bogusSig2, samplePayload2));
         // That bogus signature should be rejected when expecting the real
         // public key
-        QTest::ignoreMessage(QtMsgType::QtWarningMsg, QRegularExpression{R"(^.*:error:1C880004:Provider routines:rsa_verify:RSA lib:providers[\/\\]implementations[\/\\]signature[\/\\]rsa_sig\.c:788:\n$)"});
+        QTest::ignoreMessage(QtMsgType::QtWarningMsg, QRegularExpression{R"(^.*:error:1C880004:Provider routines:rsa_verify:RSA lib:(?:[^:]*[\/\\])?providers[\/\\]implementations[\/\\]signature[\/\\]rsa_sig\.c:788:\n$)"});
         QVERIFY(!verifySignature(Environment::defaultRegionsListPublicKey, bogusSig2, samplePayload2));
     }
     
