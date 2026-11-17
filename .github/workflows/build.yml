@@ -63,7 +63,7 @@ jobs:
           dnf -y --refresh install dnf-plugins-core epel-release
           dnf config-manager --set-enabled crb
           dnf -y --refresh install \
-            git git-lfs clang llvm gcc-c++ ruby rubygem-rake \
+            git git-lfs clang llvm compiler-rt gcc-c++ ruby rubygem-rake \
             libnl3-devel mesa-libGL-devel mesa-libEGL-devel libglvnd-devel \
             libxkbcommon-devel fontconfig freetype glib2 dbus-libs \
             zip unzip xz which file findutils tar gzip
