@@ -20,7 +20,17 @@
 #include <kapps_core/core.h>
 #include <kapps_core/logger.h>
 #include <linux/netlink.h>
+// Some kernel headers (e.g. EL9) define valid_event() as
+//     ev_type &= PROC_EVENT_ALL; return ev_type;
+// which is valid C but not C++ (no implicit conversion to an enum).  Rename
+// it, then give its original body an unsigned parameter and return type,
+// which compiles as C++ with either version of the header.  It isn't used.
+#define valid_event(...) \
+    kapps_cn_valid_event(enum proc_cn_event ev_type) \
+    { return (enum proc_cn_event)(ev_type & PROC_EVENT_ALL); } \
+    static __inline__ unsigned int kapps_cn_valid_event_c(unsigned int ev_type)
 #include <linux/cn_proc.h>
+#undef valid_event
 #include <linux/connector.h>
 #include <fcntl.h>
 #include <sys/socket.h>
