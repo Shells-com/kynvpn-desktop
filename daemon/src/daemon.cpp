@@ -88,8 +88,8 @@ namespace
     const QString modernRegionsResource{QStringLiteral("vpninfo/servers/v7")};
     const QString modernRegionMetaResource{QStringLiteral("vpninfo/regions/v2")};
 
-    // Resource paths for IP Address
-    const QString ipLookupResource{QStringLiteral("api/client/status")};
+    // Public IP lookup on the IP API: {"ip": "...", "connected": <bool>, ...}
+    const QString ipLookupResource{QStringLiteral("v1")};
 
     // Old default debug logging setting, 1.0 (and earlier) until 1.2-beta.2
     const QStringList debugLogging10{QStringLiteral("*.debug=true"),
@@ -2029,7 +2029,7 @@ public:
     VpnIpProbeTask(ApiClient &apiClient, Environment &environment)
     {
         _pPiaApiTask = apiClient.getVpnIpRetry(*environment.getIpAddrApi(),
-                                               QStringLiteral("api/client/status"),
+                                               ipLookupResource,
                                                std::chrono::seconds{10})
             ->then(this, [this](const QJsonDocument &json)
             {
@@ -2072,7 +2072,7 @@ public:
             ->then(this, [this, &apiClient, &environment]()
             {
                 return apiClient.getVpnIpRetry(*environment.getIpProxyApi(),
-                                               QStringLiteral("api/client/status"),
+                                               ipLookupResource,
                                                std::chrono::seconds{6});
             })
             ->next(this, [this](const Error &err, const QJsonDocument &)
@@ -2174,7 +2174,7 @@ Async<void> Daemon::loadVpnIp()
             if(result.address.isEmpty())
             {
                 return _apiClient.getVpnIpRetry(*_environment.getIpAddrApi(),
-                                                QStringLiteral("api/client/status"),
+                                                ipLookupResource,
                                                 std::chrono::minutes{2})
                     ->then(this, [this](const QJsonDocument &json)
                     {

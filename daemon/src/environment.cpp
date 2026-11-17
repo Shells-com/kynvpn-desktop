@@ -268,15 +268,16 @@ void Environment::loadApiBases()
                     QStringLiteral(BRAND_PLATFORM_REST "Network/VPN:serverlist?resource=/")
                 });
 
-    // Requests "api/client/status" (the public IP, and whether it is a VPN
-    // server's)
+    // Public IP lookup ("v1": the IP, and whether it is a VPN server's).  The
+    // IP proxy API was PIA's fallback for when its API was blocked; it uses
+    // the same service.
     loadApiBase(overridePresent, apiOverride, _pIpAddrApi, QStringLiteral("ip_api"),
                 QStringLiteral("IP API"), {
-                    QStringLiteral(BRAND_PLATFORM_REST "Network/VPN:ip?resource=/")
+                    QStringLiteral(BRAND_IP_API)
                 });
     loadApiBase(overridePresent, apiOverride, _pIpProxyApi, QStringLiteral("ip_proxy_api"),
                 QStringLiteral("IP proxy API"), {
-                    QStringLiteral(BRAND_PLATFORM_REST "Network/VPN:ip?resource=/")
+                    QStringLiteral(BRAND_IP_API)
                 });
     loadApiBase(overridePresent, apiOverride, _pUpdateApi, QStringLiteral("update_api"),
                 QStringLiteral("update API"), {

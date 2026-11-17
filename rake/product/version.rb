@@ -244,6 +244,8 @@ class PiaVersion
         # Base of the platform REST API (ends with '/'), which serves the
         # account, server list and IP APIs
         brandh.defineString('BRAND_PLATFORM_REST', Build::BrandInfo['brandPlatformRestUri'])
+        # Public IP lookup service (the client requests "v1" under it)
+        brandh.defineString('BRAND_IP_API', Build::BrandInfo['brandIpApiUri'])
         brandh.defineLiteral('BRAND_LINUX_FWMARK_BASE', Build::BrandInfo['linuxFwmarkBase'].to_s)
         brandh.defineLiteral('BRAND_LINUX_CGROUP_BASE', Build::BrandInfo['linuxCgroupBase'].to_s)
         brandh.defineRawString('BRAND_PARAMS', JSON.generate(Build::BrandInfo))

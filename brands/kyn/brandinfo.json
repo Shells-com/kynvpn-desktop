@@ -5,6 +5,7 @@
     "brandCompanyName": "E Shells Inc.",
     "brandWebsiteLink": "https://www.kynvpn.com/",
     "brandPlatformRestUri": "https://ws.atonline.com/_rest/",
+    "brandIpApiUri": "https://ip.kynvpn.com/clientinfo/ip/",
     "brandHasClassicTray": true,
     "brandReleaseChannelGA": "release",
     "brandReleaseChannelBeta": "beta",
