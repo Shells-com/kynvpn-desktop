@@ -67,6 +67,14 @@ jobs:
             libnl3-devel mesa-libGL-devel mesa-libEGL-devel libglvnd-devel \
             libxkbcommon-devel fontconfig freetype glib2 dbus-libs \
             zip unzip xz which file findutils tar gzip
+          # Runtime libraries of Qt and its xcb/wayland plugins, needed to run
+          # the unit tests
+          dnf -y install \
+            libX11 libX11-xcb libXau libXdmcp libxcb libSM libICE \
+            xcb-util xcb-util-cursor xcb-util-image xcb-util-keysyms \
+            xcb-util-renderutil xcb-util-wm libxkbcommon-x11 \
+            libwayland-client libwayland-cursor libwayland-egl \
+            libwayland-server libdrm mesa-libgbm brotli
           dnf clean all
       - uses: actions/checkout@v7
         with:
