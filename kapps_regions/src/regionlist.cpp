@@ -399,6 +399,45 @@ void RegionList::readPiav6JsonRegions(const nlohmann::json &jsonRegions,
     }
 }
 
+namespace
+{
+    // Read the optional per-server "port" of a v6 server.  Returns 0 if the
+    // server has no port, or if it's invalid (traced).
+    std::uint16_t readPiav6ServerPort(const nlohmann::json &jsonServer)
+    {
+        auto itPort = jsonServer.find("port");
+        if(itPort == jsonServer.end())
+            return 0;
+        if(!itPort->is_number_unsigned() || itPort->get<std::uint64_t>() < 1 ||
+           itPort->get<std::uint64_t>() > std::numeric_limits<std::uint16_t>::max())
+        {
+            KAPPS_CORE_WARNING() << "Server has invalid port" << itPort->dump();
+            return 0;
+        }
+        return static_cast<std::uint16_t>(itPort->get<std::uint64_t>());
+    }
+
+    // Copy a service group, with every service on the given port instead of
+    // the group's ports.  Used for servers that state their own port (each
+    // Kyn VPN host serves WireGuard and HTTPS on one port of its own).
+    std::shared_ptr<ServiceGroup> withServerPort(const ServiceGroup &group,
+                                                 std::uint16_t port)
+    {
+        auto onPort = [port](Ports ports)
+        {
+            return ports.empty() ? std::vector<std::uint16_t>{} :
+                                   std::vector<std::uint16_t>{port};
+        };
+        return std::make_shared<ServiceGroup>(
+            onPort(group.openVpnUdpPorts()), group.openVpnUdpNcp(),
+            onPort(group.openVpnTcpPorts()), group.openVpnTcpNcp(),
+            onPort(group.wireGuardPorts()), onPort(group.wireGuardAmneziaPorts()),
+            group.ikev2(), onPort(group.shadowsocksPorts()),
+            group.shadowsocksKey().to_string(), group.shadowsocksCipher().to_string(),
+            onPort(group.metaPorts()));
+    }
+}
+
 auto RegionList::readPiav6JsonAwgServerGroup(core::StringSlice groupName,
     const nlohmann::json &jsonServer) -> std::shared_ptr<ServiceGroup>
 {
@@ -408,24 +447,17 @@ auto RegionList::readPiav6JsonAwgServerGroup(core::StringSlice groupName,
     // Unlike every other service, AmneziaWG servers state their port on the
     // server itself, so there is no service group in the serverlist to refer
     // to.  Build one for this server alone.
-    auto itPort = jsonServer.find("port");
-    if(itPort == jsonServer.end() || !itPort->is_number_unsigned())
+    auto port = readPiav6ServerPort(jsonServer);
+    if(!port)
     {
         KAPPS_CORE_WARNING() << "AmneziaWG server has no usable port";
-        return {};
-    }
-
-    auto portValue = itPort->get<std::uint64_t>();
-    if(portValue < 1 || portValue > std::numeric_limits<std::uint16_t>::max())
-    {
-        KAPPS_CORE_WARNING() << "AmneziaWG server has invalid port" << portValue;
         return {};
     }
 
     // The port is set as both the AmneziaWG and the WireGuard port, matching
     // the alias ServiceGroup applies when a group does declare "awg" - AWG
     // servers belong to the WireGuard pool for server selection.
-    std::vector<std::uint16_t> ports{static_cast<std::uint16_t>(portValue)};
+    std::vector<std::uint16_t> ports{port};
     return std::make_shared<ServiceGroup>(std::vector<std::uint16_t>{}, true,
                                           std::vector<std::uint16_t>{}, true,
                                           ports, ports, false,
@@ -500,8 +532,13 @@ auto RegionList::readPiav6JsonRegionServers(const nlohmann::json &jsonRegion,
                 // this server.)
                 else if(itGroup->second && itGroup->second->hasAnyService())
                 {
+                    // A server may state its own port, which replaces the
+                    // group's ports for all of its services.
+                    auto pGroup = itGroup->second;
+                    if(auto port = readPiav6ServerPort(jsonServer))
+                        pGroup = withServerPort(*itGroup->second, port);
                     servers.push_back(std::make_shared<Server>(ip, std::move(cn),
-                        std::string{}, itGroup->second));
+                        std::string{}, std::move(pGroup)));
                 }
             }
             catch(const std::exception &ex)

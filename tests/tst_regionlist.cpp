@@ -784,6 +784,56 @@ private slots:
     // Test AWG (WireGuard Amnezia) service parsing in the v6/v7 serverlist format.
     // The v7 endpoint returns v6-format JSON (groups + servers-by-group),
     // parsed with the PIAv6 constructor.
+    // Kyn VPN lists give each server its own port, which replaces the group's
+    // ports for all of its services
+    void testPiav6ServerPort()
+    {
+        core::StringSlice json = R"(
+            {
+              "groups": {
+                "wg": [{"name": "wireguard", "ports": [51820]}],
+                "meta": [{"name": "meta", "ports": [443]}]
+              },
+              "regions": [
+                {
+                  "id": "kyn_test",
+                  "name": "Test",
+                  "country": "DE",
+                  "auto_region": true,
+                  "dns": "a.example.net",
+                  "port_forward": false,
+                  "geo": false,
+                  "offline": false,
+                  "servers": {
+                    "wg": [
+                      {"ip": "203.0.113.3", "port": 11908, "cn": "a.example.net"},
+                      {"ip": "203.0.113.4", "cn": "b.example.net"},
+                      {"ip": "203.0.113.5", "port": 70000, "cn": "c.example.net"}
+                    ],
+                    "meta": [
+                      {"ip": "203.0.113.3", "port": 11908, "cn": "a.example.net"}
+                    ]
+                  }
+                }
+              ]
+            }
+        )";
+        RegionList r{RegionList::PIAv6, json, {}, {}, {}};
+        const auto &region = *r.getRegion("kyn_test");
+        QCOMPARE(region.servers().size(), 4u);
+        // Groups are read in name order: "meta" first, then "wg"
+        const auto &meta = *region.servers()[0];
+        QCOMPARE(meta.metaPorts(), (std::vector<std::uint16_t>{11908}));
+        QCOMPARE(meta.hasWireGuard(), false);
+        const auto &own = *region.servers()[1];
+        QCOMPARE(own.commonName(), "a.example.net");
+        QCOMPARE(own.wireGuardPorts(), (std::vector<std::uint16_t>{11908}));
+        QCOMPARE(own.hasMeta(), false);
+        // No port, or an invalid one: the group's ports
+        QCOMPARE(region.servers()[2]->wireGuardPorts(), (std::vector<std::uint16_t>{51820}));
+        QCOMPARE(region.servers()[3]->wireGuardPorts(), (std::vector<std::uint16_t>{51820}));
+    }
+
     void testPiav6WireGuardAmnezia()
     {
         core::StringSlice json = R"(
