@@ -241,6 +241,9 @@ class PiaVersion
         brandh.defineString('BRAND_LINUX_APP_NAME', Build::BrandInfo['linuxAppName'])
         brandh.defineString('BRAND_COMPANY_NAME', Build::BrandInfo['brandCompanyName'] || @productName)
         brandh.defineString('BRAND_WEBSITE_LINK', Build::BrandInfo['brandWebsiteLink'] || '')
+        # Base of the platform REST API (ends with '/'), which serves the
+        # account, server list and IP APIs
+        brandh.defineString('BRAND_PLATFORM_REST', Build::BrandInfo['brandPlatformRestUri'])
         brandh.defineLiteral('BRAND_LINUX_FWMARK_BASE', Build::BrandInfo['linuxFwmarkBase'].to_s)
         brandh.defineLiteral('BRAND_LINUX_CGROUP_BASE', Build::BrandInfo['linuxCgroupBase'].to_s)
         brandh.defineRawString('BRAND_PARAMS', JSON.generate(Build::BrandInfo))

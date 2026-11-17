@@ -90,6 +90,14 @@ class tst_apiclient : public QObject
 {
     Q_OBJECT
 
+    // The product's API bases have a single host; these tests use two hosts
+    // to cover the retries on the alternate host.  The base remembers the
+    // last successful host, so it's shared like the product's bases are.
+    FixedApiBase apiBase{std::initializer_list<QString>{
+        QStringLiteral("https://api1.example.com/"),
+        QStringLiteral("https://api2.example.com/")
+    }};
+
 private slots:
     void init()
     {
@@ -106,7 +114,7 @@ private slots:
 
         // Spy on completion
         CallbackSpy resultSpy;
-        client.getRetry(*client.getApiv1(), TestData::status, TestData::passwordAuth())
+        client.getRetry(apiBase, TestData::status, TestData::passwordAuth())
             ->notify(&resultSpy, resultSpy.callback());
         QVERIFY(consumeSpy.wait(100));
         QVERIFY(!MockNetworkManager::hasNextReply());
@@ -132,7 +140,7 @@ private slots:
 
         // Spy on completion
         CallbackSpy resultSpy;
-        client.getRetry(*client.getApiv1(), TestData::status, TestData::passwordAuth())
+        client.getRetry(apiBase, TestData::status, TestData::passwordAuth())
             ->notify(&resultSpy, resultSpy.callback());
         QVERIFY(consumeSpy.wait(100));
         QVERIFY(!MockNetworkManager::hasNextReply());
@@ -154,9 +162,6 @@ private slots:
     }
 
     // Test that ApiClient remembers the last successful API base.
-    // Note that the API base data is held in the static ApiBase objects, so an
-    // early failure in this test could be due to the state being unexpected
-    // following a prior test.
     // (ApiBase does this by design; JsonRefresher shares the last-successful
     // state with ApiClient.)
     void testApiBaseMemory()
@@ -165,21 +170,21 @@ private slots:
 
         QSignalSpy consumeSpy{&MockNetworkManager::_replyConsumed, &ReplyConsumedSignal::signal};
 
-        // Do a GET request.  Act as if api.privateinternetaccess.com is not
-        // reachable, but piaproxy.net is.
+        // Do a GET request.  Act as if the first host is not reachable, but
+        // the second one is.
         auto pHeadReply1 = MockNetworkManager::enqueueReply();
         CallbackSpy headSpy;
-        client.getRetry(*client.getApiv1(), TestData::status, TestData::passwordAuth())
+        client.getRetry(apiBase, TestData::status, TestData::passwordAuth())
             ->notify(&headSpy, headSpy.callback());
         QVERIFY(consumeSpy.wait(100));
-        QVERIFY(TestData::checkConsumedHost(consumeSpy, QStringLiteral("api.privateinternetaccess.com")));
+        QVERIFY(TestData::checkConsumedHost(consumeSpy, QStringLiteral("api1.example.com")));
         consumeSpy.clear();
 
         auto pHeadReply2 = MockNetworkManager::enqueueReply(TestData::success);
         // Host is unreachable
         pHeadReply1->finishNetError();
         QVERIFY(consumeSpy.wait(100));
-        QVERIFY(TestData::checkConsumedHost(consumeSpy, QStringLiteral("api.piaproxy.net")));
+        QVERIFY(TestData::checkConsumedHost(consumeSpy, QStringLiteral("api2.example.com")));
         consumeSpy.clear();
 
         // Success on the alternate host
@@ -187,13 +192,13 @@ private slots:
         // Just check that the error code is Success, there's no result for HEAD
         QVERIFY(headSpy.checkSuccess());
 
-        // Now, do a GET and verify that it starts on piaproxy.net.
+        // Now, do a GET and verify that it starts on the second host.
         CallbackSpy getSpy;
         auto pGetReply = MockNetworkManager::enqueueReply(TestData::success);
-        client.getRetry(*client.getApiv1(), TestData::status, TestData::passwordAuth())
+        client.getRetry(apiBase, TestData::status, TestData::passwordAuth())
             ->notify(&getSpy, getSpy.callback());
         QVERIFY(consumeSpy.wait(100));
-        QVERIFY(TestData::checkConsumedHost(consumeSpy, QStringLiteral("api.piaproxy.net")));
+        QVERIFY(TestData::checkConsumedHost(consumeSpy, QStringLiteral("api2.example.com")));
         consumeSpy.clear();
 
         emit pGetReply->finished();

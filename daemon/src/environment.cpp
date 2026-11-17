@@ -240,38 +240,43 @@ void Environment::loadApiBases()
         }
     }
 
-    // Load each API base
+    // Load each API base.
+    //
+    // The Kyn VPN platform serves the PIA-compatible APIs as REST methods of
+    // Network/VPN, with the resource in the "resource" parameter.  Requests
+    // append the resource to the base, which always ends with '/', giving
+    // e.g. ".../_rest/Network/VPN:apiV2?resource=/token"; the platform
+    // strips the leading '/'.
     loadApiBase(overridePresent, apiOverride, _pApiv1, QStringLiteral("apiv1"),
                 QStringLiteral("API v1"), {
-                    QStringLiteral("https://api.privateinternetaccess.com/api/client"),
-                    QStringLiteral("https://api.piaproxy.net/api/client")
+                    QStringLiteral(BRAND_PLATFORM_REST "Network/VPN:apiV1?resource=/")
                 });
     loadDynamicApiBase(overridePresent, apiOverride, _pApiv2, QStringLiteral("apiv2"),
                 QStringLiteral("API v2"), QStringLiteral("/apiv2/"), {
-                    QStringLiteral("https://apiv2.privateinternetaccess.com/api/client/v2/"),
-                    QStringLiteral("https://apiv2.piaproxy.net/api/client/v2/")
+                    QStringLiteral(BRAND_PLATFORM_REST "Network/VPN:apiV2?resource=/")
                 });
     // Meta servers proxy API v5 at /api/client/v5/; unlike v2 (/apiv2/), there
     // is no /apiv5/ route.
     loadDynamicApiBase(overridePresent, apiOverride, _pApiv5, QStringLiteral("apiv5"),
                 QStringLiteral("API v5"), QStringLiteral("/api/client/v5/"), {
-                    QStringLiteral("https://apiv5.privateinternetaccess.com/api/client/v5/"),
-                    QStringLiteral("https://apiv5.piaproxy.net/api/client/v5/")
+                    QStringLiteral(BRAND_PLATFORM_REST "Network/VPN:apiV5?resource=/")
                 });
 
     loadDynamicApiBase(overridePresent, apiOverride, _pModernRegionsListApi,
                 QStringLiteral("modern_regions_list_api"),
                 QStringLiteral("modern regions list API"), QStringLiteral("/"), {
-                    QStringLiteral("https://serverlist.piaservers.net")
+                    QStringLiteral(BRAND_PLATFORM_REST "Network/VPN:serverlist?resource=/")
                 });
 
+    // Requests "api/client/status" (the public IP, and whether it is a VPN
+    // server's)
     loadApiBase(overridePresent, apiOverride, _pIpAddrApi, QStringLiteral("ip_api"),
                 QStringLiteral("IP API"), {
-                    QStringLiteral("https://api.privateinternetaccess.com/")
+                    QStringLiteral(BRAND_PLATFORM_REST "Network/VPN:ip?resource=/")
                 });
     loadApiBase(overridePresent, apiOverride, _pIpProxyApi, QStringLiteral("ip_proxy_api"),
                 QStringLiteral("IP proxy API"), {
-                    QStringLiteral("https://api.piaproxy.net/")
+                    QStringLiteral(BRAND_PLATFORM_REST "Network/VPN:ip?resource=/")
                 });
     loadApiBase(overridePresent, apiOverride, _pUpdateApi, QStringLiteral("update_api"),
                 QStringLiteral("update API"), {

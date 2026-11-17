@@ -4,6 +4,7 @@
     "brandIdentifier": "com.kynvpn.vpn",
     "brandCompanyName": "E Shells Inc.",
     "brandWebsiteLink": "https://www.kynvpn.com/",
+    "brandPlatformRestUri": "https://ws.atonline.com/_rest/",
     "brandHasClassicTray": true,
     "brandReleaseChannelGA": "release",
     "brandReleaseChannelBeta": "beta",
