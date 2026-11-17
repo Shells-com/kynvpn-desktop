@@ -35,6 +35,20 @@ class ClangLinux
             raise "Found clang installed at #{toolchainPath}, but did not find LLVM tools.\n" +
                 "Install an LLVM package, usually 'llvm' or 'llvm-<version>'"
         end
+
+        # For the host architecture, use clang's default target triple
+        # (e.g. x86_64-redhat-linux-gnu) rather than the generic one.
+        # Distributions install compiler-rt (needed for code coverage) in a
+        # directory named after their own triple, which clang doesn't search
+        # for a generic triple.
+        @driverTargetOpts = DriverPlatformArchOpts[Build::Platform].dup
+        if Build.linux?
+            defaultTriple = `'#{File.join(toolchainPath, 'clang')}' -dumpmachine`.strip
+            hostArch = {'x86_64' => :x86_64, 'aarch64' => :arm64}[defaultTriple.split('-')[0]]
+            if hostArch && defaultTriple.end_with?('-linux-gnu')
+                @driverTargetOpts[hostArch] = ['-target', defaultTriple]
+            end
+        end
     end
 
     def ar
@@ -45,7 +59,7 @@ class ClangLinux
     # are used a lot - not just in compile/link steps, but also when probing
     # header/lib search paths, etc.
     def driverTargetOpts(architecture)
-        DriverPlatformArchOpts[Build::Platform][architecture]
+        @driverTargetOpts[architecture]
     end
 
     # Linux desktop uses versioned dynamic libraries, but Android
