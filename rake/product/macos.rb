@@ -343,8 +343,10 @@ module PiaMacOS
         notarizeBuild = !ENV['PIA_BRANCH_BUILD'] || ENV['PIA_BRANCH_BUILD'] == '' ||
                         ENV['PIA_BRANCH_BUILD'] == 'master' ||
                         ENV['PIA_ALWAYS_NOTARIZE'] == '1'
-        # Can't notarize if credentials are not set
-        if(!ENV['PIA_APPLE_ID_EMAIL'] || !ENV['PIA_APPLE_ID_PASSWORD'])
+        # Can't notarize if the build isn't signed or credentials are not set
+        # (CI passes unset secrets as empty strings)
+        if(['PIA_CODESIGN_CERT', 'PIA_APPLE_ID_EMAIL', 'PIA_APPLE_ID_PASSWORD',
+            'PIA_APPLE_TEAM_ID'].any? { |v| ENV[v].to_s.empty? })
             notarizeBuild = false
         end
 
