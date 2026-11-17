@@ -211,7 +211,7 @@ void Environment::loadDynamicApiBase(bool overridePresent,
     if(!pApiBase)
     {
         pApiBase = std::make_shared<MetaServiceApiBase>(_state, dynamicBasePath,
-                                                        _pRsa4096CA, fixedBases);
+                                                        getVpnServerCA(), fixedBases);
     }
 }
 

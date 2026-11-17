@@ -72,7 +72,7 @@ PortForwardRequestModern::PortForwardRequestModern(ApiClient &apiClient,
                                                    const Environment &environment)
     : _apiClient{apiClient}, _account{account},
       _pfApiBase{QStringLiteral("https://") + state.tunnelDeviceRemoteAddress() + QStringLiteral(":19999"),
-                 environment.getRsa4096CA(),
+                 environment.getVpnServerCA(),
                  state.connectedServer().isNull() ? QString{} : state.connectedServer()->commonName()},
       _canRetry{true}
 {

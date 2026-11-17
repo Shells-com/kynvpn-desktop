@@ -155,6 +155,14 @@ Async<QByteArray> NetworkTaskWithRetry::sendRequest()
         sslConfig.setCaCertificates({});
         request.setSslConfiguration(sslConfig);
     }
+    else if(!nextBase.peerVerifyName.isEmpty())
+    {
+        qDebug() << "requesting:" << requestResource
+            << "using peer name" << nextBase.peerVerifyName;
+        // Publicly trusted certificate for a host addressed by IP: Qt checks
+        // it against the system CAs for this name, and sends it as SNI
+        request.setPeerVerifyName(nextBase.peerVerifyName);
+    }
     else
     {
         qDebug() << "requesting:" << requestResource;

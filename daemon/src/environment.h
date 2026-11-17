@@ -95,6 +95,12 @@ public:
     // Get a shared PrivateCA for the RSA-4096 CA.
     const std::shared_ptr<PrivateCA> &getRsa4096CA() const {return _pRsa4096CA;}
 
+    // CA for the HTTPS services of VPN servers (WireGuard addKey, meta, port
+    // forwarding), which are requested by IP with the server's "cn" as the
+    // peer name.  Kyn VPN servers have publicly trusted certificates for
+    // their cn, so there is no private CA: the system CAs are used.
+    std::shared_ptr<PrivateCA> getVpnServerCA() const {return {};}
+
     // Get the regions list public key (PEM format)
     QByteArray getRegionsListPublicKey() const {return _regionsListPublicKey;}
 

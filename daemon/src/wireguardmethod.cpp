@@ -1249,7 +1249,7 @@ void WireguardMethod::run(const ConnectionConfig &connectingConfig,
     }
     // Don't do DNS resolution while connecting - specify the IP address in the
     // request, and use the host name to verify the certificate.
-    FixedApiBase hostAuthBase{authHost, g_daemon->environment().getRsa4096CA(), certCommonName};
+    FixedApiBase hostAuthBase{authHost, g_daemon->environment().getVpnServerCA(), certCommonName};
 
     _pAuthRequest = g_daemon->apiClient().getRetry(hostAuthBase, resource, authHeader)
         ->then(this, [this, clientKeypair=std::move(clientKeypair), useAmnezia](const QJsonDocument &result)

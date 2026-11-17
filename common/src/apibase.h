@@ -56,8 +56,10 @@ struct COMMON_EXPORT BaseUri
     // An optional PrivateCA that will be used to validate the certificate
     // instead of the default.  If specified, peerVerifyName must also be set.
     std::shared_ptr<PrivateCA> pCA;
-    // The peer verify name to use when checking the host's certificate.
-    // Requires pCA, and must be set if pCA is set.
+    // The peer verify name to use when checking the host's certificate, for
+    // URIs that address the host by IP.  Must be set if pCA is set.  Without
+    // pCA, the certificate is checked against the system CAs for this name
+    // (which is also sent as the TLS server name).
     QString peerVerifyName;
 };
 
