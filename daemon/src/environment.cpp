@@ -29,15 +29,10 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 
+// Ed25519 key signing the server lists (see brandServerListUri)
 const QByteArray Environment::defaultRegionsListPublicKey = QByteArrayLiteral(
     "-----BEGIN PUBLIC KEY-----\n"
-    "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzLYHwX5Ug/oUObZ5eH5P\n"
-    "rEwmfj4E/YEfSKLgFSsyRGGsVmmjiXBmSbX2s3xbj/ofuvYtkMkP/VPFHy9E/8ox\n"
-    "Y+cRjPzydxz46LPY7jpEw1NHZjOyTeUero5e1nkLhiQqO/cMVYmUnuVcuFfZyZvc\n"
-    "8Apx5fBrIp2oWpF/G9tpUZfUUJaaHiXDtuYP8o8VhYtyjuUu3h7rkQFoMxvuoOFH\n"
-    "6nkc0VQmBsHvCfq4T9v8gyiBtQRy543leapTBMT34mxVIQ4ReGLPVit/6sNLoGLb\n"
-    "gSnGe9Bk/a5V/5vlqeemWF0hgoRtUxMtU1hFbe7e8tSq1j+mu0SHMyKHiHd+OsmU\n"
-    "IQIDAQAB\n"
+    "MCowBQYDK2VwAyEAfV8dO/W/wYJI1Sq/lQdVexyYpOcMZvvKZEqFM1p99sE=\n"
     "-----END PUBLIC KEY-----"
 );
 

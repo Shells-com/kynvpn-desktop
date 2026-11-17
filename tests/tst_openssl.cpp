@@ -41,6 +41,31 @@ namespace
     const QByteArray validSig2B64 = TestResource::load(QStringLiteral(":/openssl/payload2/sig"));
     const QByteArray validSig2 = QByteArray::fromBase64(validSig2B64);
 
+    // PIA's RSA regions list key, which signed the sample payloads above
+    const QByteArray piaRsaPubKey = QByteArrayLiteral(
+        "-----BEGIN PUBLIC KEY-----\n"
+        "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzLYHwX5Ug/oUObZ5eH5P\n"
+        "rEwmfj4E/YEfSKLgFSsyRGGsVmmjiXBmSbX2s3xbj/ofuvYtkMkP/VPFHy9E/8ox\n"
+        "Y+cRjPzydxz46LPY7jpEw1NHZjOyTeUero5e1nkLhiQqO/cMVYmUnuVcuFfZyZvc\n"
+        "8Apx5fBrIp2oWpF/G9tpUZfUUJaaHiXDtuYP8o8VhYtyjuUu3h7rkQFoMxvuoOFH\n"
+        "6nkc0VQmBsHvCfq4T9v8gyiBtQRy543leapTBMT34mxVIQ4ReGLPVit/6sNLoGLb\n"
+        "gSnGe9Bk/a5V/5vlqeemWF0hgoRtUxMtU1hFbe7e8tSq1j+mu0SHMyKHiHd+OsmU\n"
+        "IQIDAQAB\n"
+        "-----END PUBLIC KEY-----"
+    );
+
+    // Ed25519 test key (not the product's key) and its signatures of the
+    // sample payloads
+    const QByteArray ed25519TestPubKey = QByteArrayLiteral(
+        "-----BEGIN PUBLIC KEY-----\n"
+        "MCowBQYDK2VwAyEAzGDZ02kxb5hgL4fpmYZyMqbXqQLYwT65dhY6qnKDRxM=\n"
+        "-----END PUBLIC KEY-----"
+    );
+    const QByteArray ed25519Sig1 = QByteArray::fromBase64(QByteArrayLiteral(
+        "x6MU44c3HH+Ihq6jFfZD9CYM4cwswRLqI+PrFYGBQPacnKcG2jX4BN5Jk2iQvfkPbgFuvOnwUmJ56eF2doXwCg=="));
+    const QByteArray ed25519Sig2 = QByteArray::fromBase64(QByteArrayLiteral(
+        "CTwjfzjUlO3pC6U2C1xTlUB/cnnpBqO009opXlLL6pOpvB+Y5EhBXKlX1yxl7HaLJCVnMS79olgy2Q4r3qvQDA=="));
+
     // This garbage "signature" is just 256 random bytes.
     const QByteArray garbageSigB64 = QByteArrayLiteral(
         "vlJX4cqmIcSgyN01eHLFL/6U3UbgfeAJ9kn9cg+FFPMod1KymJFee9DwrOeo\n"
@@ -126,8 +151,8 @@ private slots:
     // Test that valid GPG signatures are accepted
     void testValidSignatures()
     {
-        QVERIFY(verifySignature(Environment::defaultRegionsListPublicKey, validSig1, samplePayload1));
-        QVERIFY(verifySignature(Environment::defaultRegionsListPublicKey, validSig2, samplePayload2));
+        QVERIFY(verifySignature(piaRsaPubKey, validSig1, samplePayload1));
+        QVERIFY(verifySignature(piaRsaPubKey, validSig2, samplePayload2));
     }
 
     // Test that mismatched GPG signatures are rejected - these signatures were
@@ -135,17 +160,17 @@ private slots:
     void testMismatchedSignatures()
     {
         QTest::ignoreMessage(QtMsgType::QtWarningMsg, QRegularExpression{R"(^.*:error:02000068:rsa routines:ossl_rsa_verify:bad signature:(?:[^:]*[\/\\])?crypto[\/\\]rsa[\/\\]rsa_sign\.c:430:\n$)"});
-        QVERIFY(!verifySignature(Environment::defaultRegionsListPublicKey, validSig2, samplePayload1));
+        QVERIFY(!verifySignature(piaRsaPubKey, validSig2, samplePayload1));
 
         QTest::ignoreMessage(QtMsgType::QtWarningMsg, QRegularExpression{R"(^.*:error:1C880004:Provider routines:rsa_verify:RSA lib:(?:[^:]*[\/\\])?providers[\/\\]implementations[\/\\]signature[\/\\]rsa_sig\.c:788:\n$)"});
-        QVERIFY(!verifySignature(Environment::defaultRegionsListPublicKey, validSig1, samplePayload2));
+        QVERIFY(!verifySignature(piaRsaPubKey, validSig1, samplePayload2));
     }
     
     // Test that the garbage signature is rejected
     void testGarbageSignature()
     {
         QTest::ignoreMessage(QtMsgType::QtWarningMsg, QRegularExpression{R"(^.*:error:02000068:rsa routines:ossl_rsa_verify:bad signature:(?:[^:]*[\/\\])?crypto[\/\\]rsa[\/\\]rsa_sign\.c:430:\n$)"});
-        QVERIFY(!verifySignature(Environment::defaultRegionsListPublicKey, garbageSig, samplePayload1));
+        QVERIFY(!verifySignature(piaRsaPubKey, garbageSig, samplePayload1));
     }
 
     // Test that a valid signature using the wrong key is rejected.
@@ -156,10 +181,25 @@ private slots:
         // That bogus signature should be rejected when expecting the real
         // public key
         QTest::ignoreMessage(QtMsgType::QtWarningMsg, QRegularExpression{R"(^.*:error:1C880004:Provider routines:rsa_verify:RSA lib:(?:[^:]*[\/\\])?providers[\/\\]implementations[\/\\]signature[\/\\]rsa_sig\.c:788:\n$)"});
-        QVERIFY(!verifySignature(Environment::defaultRegionsListPublicKey, bogusSig2, samplePayload2));
+        QVERIFY(!verifySignature(piaRsaPubKey, bogusSig2, samplePayload2));
     }
     
     // Verify a real certificate with the real PIA RSA-4096 CA certificate
+    // Ed25519 signatures (used by the Kyn VPN server lists)
+    void testEd25519Signatures()
+    {
+        QVERIFY(verifySignature(ed25519TestPubKey, ed25519Sig1, samplePayload1));
+        QVERIFY(verifySignature(ed25519TestPubKey, ed25519Sig2, samplePayload2));
+        // Mismatched payloads, a truncated signature and RSA signatures fail
+        QVERIFY(!verifySignature(ed25519TestPubKey, ed25519Sig1, samplePayload2));
+        QVERIFY(!verifySignature(ed25519TestPubKey, ed25519Sig1.left(32), samplePayload1));
+        QVERIFY(!verifySignature(ed25519TestPubKey, validSig1, samplePayload1));
+        // Another key (the product's) rejects them, and the RSA key rejects
+        // the Ed25519 signature
+        QVERIFY(!verifySignature(Environment::defaultRegionsListPublicKey, ed25519Sig1, samplePayload1));
+        QVERIFY(!verifySignature(piaRsaPubKey, ed25519Sig1, samplePayload1));
+    }
+
     void testPiaCACertificate()
     {
         auto pCA = defaultEnv->getRsa4096CA();

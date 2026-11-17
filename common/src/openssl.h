@@ -28,6 +28,7 @@
 #include <QList>
 #include <QSslCertificate>
 
+// Verify a signature with a PEM public key: Ed25519, or RSA with SHA-256.
 bool COMMON_EXPORT verifySignature(const QByteArray& publicKeyPem, const QByteArray& signature, const QByteArray& data);
 
 // PrivateCA can be used to validate a certificate chain issued from a private

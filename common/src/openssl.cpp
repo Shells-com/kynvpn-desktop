@@ -66,6 +66,7 @@ typedef int (*X509_STORE_CTX_verify_cb)(int, X509_STORE_CTX *);
 enum
 {
     EVP_PKEY_X25519 = 1034, // NID_X25519
+    EVP_PKEY_ED25519 = 1087, // NID_ED25519
     X509_V_ERR_CERT_HAS_EXPIRED = 10,
     X509_V_OK = 0,
 };
@@ -91,6 +92,9 @@ static void (*EVP_PKEY_free)(EVP_PKEY* pkey) = nullptr;
 static int (*EVP_DigestVerifyInit)(EVP_MD_CTX* ctx, EVP_PKEY_CTX** pctx, const EVP_MD* type, ENGINE* e, EVP_PKEY* pkey) = nullptr;
 static int (*EVP_DigestUpdate)(EVP_MD_CTX* ctx, const void* d, size_t cnt) = nullptr;
 static int (*EVP_DigestVerifyFinal)(EVP_MD_CTX* ctx, const unsigned char* sig, size_t siglen) = nullptr;
+static int (*EVP_DigestVerify)(EVP_MD_CTX* ctx, const unsigned char* sig, size_t siglen, const unsigned char* tbs, size_t tbslen) = nullptr;
+// EVP_PKEY_id() in OpenSSL 1.1, renamed in 3.0 (EVP_PKEY_id is now a macro)
+static int (*EVP_PKEY_get_base_id)(const EVP_PKEY* pkey) = nullptr;
 
 static void (*X509_free)(X509*) = nullptr;
 static int (*X509_check_host)(X509*, const char *, size_t, unsigned int, char**) = nullptr;
@@ -213,6 +217,8 @@ static bool checkOpenSSL()
     RESOLVE_OPENSSL_FUNCTION(EVP_DigestVerifyInit);
     RESOLVE_OPENSSL_FUNCTION(EVP_DigestUpdate);
     RESOLVE_OPENSSL_FUNCTION(EVP_DigestVerifyFinal);
+    RESOLVE_OPENSSL_FUNCTION(EVP_DigestVerify);
+    RESOLVE_OPENSSL_FUNCTION(EVP_PKEY_get_base_id);
 
     RESOLVE_OPENSSL_FUNCTION(X509_free);
     RESOLVE_OPENSSL_FUNCTION(X509_check_host);
@@ -304,9 +310,6 @@ bool verifySignature(const QByteArray& publicKeyPem, const QByteArray& signature
     // library) as though the signature validated successfully.
     if (!checkOpenSSL()) return true;
 
-    auto md = EVP_sha256();
-    if (!md) return false;
-
     EVP_PKEY* pkey = createPublicKeyFromPem(publicKeyPem);
     if (!pkey) return false;
     AT_SCOPE_EXIT(EVP_PKEY_free(pkey));
@@ -315,10 +318,29 @@ bool verifySignature(const QByteArray& publicKeyPem, const QByteArray& signature
     if (!ctx) return false;
     AT_SCOPE_EXIT(EVP_MD_CTX_free(ctx));
 
-    if (1 == EVP_DigestVerifyInit(ctx, nullptr, md, nullptr, pkey) &&
-        1 == EVP_DigestUpdate(ctx, data.data(), static_cast<size_t>(data.size())) &&
-        1 == EVP_DigestVerifyFinal(ctx, reinterpret_cast<const unsigned char*>(signature.data()), static_cast<size_t>(signature.size())))
-        return true;
+    auto pSig = reinterpret_cast<const unsigned char*>(signature.data());
+    auto sigLen = static_cast<size_t>(signature.size());
+    if (EVP_PKEY_get_base_id(pkey) == EVP_PKEY_ED25519)
+    {
+        // Ed25519 signs the data itself (no digest), and only supports
+        // one-shot verification
+        if (1 == EVP_DigestVerifyInit(ctx, nullptr, nullptr, nullptr, pkey) &&
+            1 == EVP_DigestVerify(ctx, pSig, sigLen,
+                                  reinterpret_cast<const unsigned char*>(data.data()),
+                                  static_cast<size_t>(data.size())))
+            return true;
+    }
+    else
+    {
+        // RSA with SHA-256
+        auto md = EVP_sha256();
+        if (!md) return false;
+
+        if (1 == EVP_DigestVerifyInit(ctx, nullptr, md, nullptr, pkey) &&
+            1 == EVP_DigestUpdate(ctx, data.data(), static_cast<size_t>(data.size())) &&
+            1 == EVP_DigestVerifyFinal(ctx, pSig, sigLen))
+            return true;
+    }
 
     ERR_print_errors_cb([](const char* str, size_t len, void*) {
         qWarning() << QLatin1String(str, static_cast<int>(len));
