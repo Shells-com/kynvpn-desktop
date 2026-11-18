@@ -10,11 +10,13 @@ name: Build
 # - Windows uses the official Qt binaries from download.qt.io (installed by
 #   .github/scripts/install-qt-official.py).
 #
-# Code signing is optional and enabled by repository secrets:
-# - macOS signing: MACOS_CERT_P12 (base64 .p12), MACOS_CERT_PASSWORD,
-#   MACOS_CODESIGN_IDENTITY (certificate common name)
-# - macOS notarization (needs signing): APPLE_ID, APPLE_APP_PASSWORD,
-#   APPLE_TEAM_ID
+# Code signing is optional and enabled by secrets:
+# - macOS (secrets of the 'macos-signing' environment, limited to master and
+#   v* tags; set them up with .github/scripts/setup-macos-signing.sh):
+#   - signing: MACOS_CERT_P12 (base64 .p12), MACOS_CERT_PASSWORD,
+#     MACOS_CODESIGN_IDENTITY (certificate common name)
+#   - notarization (needs signing): APPLE_ID, APPLE_APP_PASSWORD,
+#     APPLE_TEAM_ID
 # - Windows signing: WINDOWS_CERT_PFX (base64 .pfx), WINDOWS_CERT_PASSWORD
 on:
   push:
@@ -114,6 +116,9 @@ jobs:
   macos:
     name: macos-universal
     runs-on: macos-15
+    # The signing/notarization secrets live in this environment, which only
+    # master and v* tags can use, so other branches and PRs build unsigned.
+    environment: ${{ (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')) && 'macos-signing' || '' }}
     env:
       LFS_EXCLUDE: deps/built/linux/**,deps/built/win/**,deps/dump_syms/dump_syms.exe,deps/dump_syms/dump_syms_linux*.bin
       ARCHITECTURE: universal
@@ -167,7 +172,9 @@ jobs:
           PIA_APPLE_ID_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
           PIA_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           PIA_APPLE_NOTARIZE_TIMEOUT: 1h
-          PIA_BRANCH_BUILD: ${{ github.ref_name }}
+          # Empty for tags: a release build (release version number, always
+          # notarized).  Branches other than master skip notarization.
+          PIA_BRANCH_BUILD: ${{ github.ref_type != 'tag' && github.ref_name || '' }}
         run: rake -j"$(sysctl -n hw.ncpu)" artifacts
       - uses: actions/upload-artifact@v7
         if: always()
