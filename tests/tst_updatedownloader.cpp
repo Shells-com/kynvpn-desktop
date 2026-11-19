@@ -18,6 +18,7 @@
 
 #include "daemon/src/updatedownloader.h"
 #include <common/src/openssl.h>
+#include <common/src/builtin/path.h>
 #include <common/src/testshim.h>
 #include "version.h"
 #include "brand.h"
@@ -99,7 +100,10 @@ QByteArray signPayload(const QByteArray &payload,
                        const QByteArray &privKey = TestData::updateTestPrivKey)
 {
     const QByteArray signature{signEd25519(privKey, payload)};
-    Q_ASSERT(!signature.isEmpty());
+    // Without OpenSSL (see initTestCase()), every test would just see
+    // unsigned metadata being rejected
+    if(signature.isEmpty())
+        qFatal("Can't sign the mock update metadata, is OpenSSL loaded?");
     return payload + "\n\n" + signature.toBase64() + "\n";
 }
 
@@ -190,6 +194,14 @@ class tst_updatedownloader : public QObject
     Q_OBJECT
 
 private slots:
+    void initTestCase()
+    {
+        // Initialize the paths, so OpenSSL is loaded from UNIT_TEST_LIB (to
+        // sign and verify the mock metadata)
+        Path::initializePreApp();
+        Path::initializePostApp();
+    }
+
     void init()
     {
         TestShim::installMock<QNetworkAccessManager, MockNetworkManager>();
