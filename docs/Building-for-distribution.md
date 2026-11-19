@@ -59,8 +59,8 @@ $$ QTROOT=/opt/Qt-kynvpn/6.12.0 rake VARIANT=release BRAND=kyn all
 [`.github/workflows/build.yml`](../.github/workflows/build.yml) builds every
 platform on each push to `master` and on pull requests, and keeps the outputs
 of `rake artifacts` as workflow artifacts.  Pushing a `v<version>` tag (e.g.
-`v1.0.0`) also sets the product version and creates a draft release with the
-installers.
+`v1.0.0`) also sets the product version and, once every platform has built,
+publishes a release with the installers.
 
 ### Releases and updates
 
@@ -78,8 +78,16 @@ The client checks `https://github.com/Shells-com/kynvpn-desktop/releases/latest/
 ignores metadata that isn't signed with the key in
 `Environment::defaultUpdatePublicKey` (`daemon/src/environment.cpp`, the same
 as `kynvpn-release.pub`), and discards a downloaded installer whose SHA-256
-doesn't match.  Publishing the draft release is what offers the update to
-users.  There is no beta update channel.
+doesn't match.
+
+The release job publishes the release as soon as every platform has built
+(if any platform fails, nothing is published), so pushing a `vX.Y.Z` tag
+offers the update to users.  The assets are uploaded to a draft that is only
+published once complete.  A tag with a suffix (`v1.2.3.beta.1`) is published
+as a GitHub prerelease, which `releases/latest` ignores: there is no beta
+update channel, so clients never see it.  To pull a bad release, delete it or
+mark it as a prerelease; `releases/latest` then points to the previous one
+(clients that already updated stay on it).
 
 The private key is backed up in the login keychain of the Mac it was made on
 ("Kyn VPN release signing key (Ed25519)").  Losing it means installed clients

@@ -2,7 +2,10 @@ name: Build
 
 # Builds the client for every platform and keeps the installers, debug
 # symbols, etc. as workflow artifacts.  Pushing a tag named v<version>
-# (e.g. v1.0.0) also creates a draft GitHub release with the installers.
+# (e.g. v1.0.0) also publishes a signed GitHub release with the installers
+# once every platform has built, which offers the update to clients (a tag
+# with a suffix, e.g. v1.0.0.beta.1, is published as a prerelease, which
+# clients don't see).
 #
 # Qt:
 # - Linux and macOS use the open source Qt builds from Shells-com/kynvpn-qt
@@ -314,7 +317,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    name: Draft release
+    name: Release
     needs: [linux, macos, windows]
     if: github.ref_type == 'tag'
     runs-on: ubuntu-24.04
@@ -358,9 +361,21 @@ jobs:
           openssl pkeyutl -verify -pubin -inkey "$RUNNER_TEMP/release.pub" -rawin \
             -in release/SHA256SUMS -sigfile release/SHA256SUMS.sig
           cat release/SHA256SUMS
-      - name: Create draft release
+      - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # A tag with a suffix (v1.2.3.beta.1) is a prerelease build: publish
+          # it as a GitHub prerelease, which releases/latest (what clients
+          # check for updates) never points to
+          if [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            kind=(--latest)
+          else
+            kind=(--prerelease --latest=false)
+          fi
+          # Upload everything to a draft first: once published, the release
+          # is offered to clients, so update.json must not be visible before
+          # the installers it points to
           gh release create "$GITHUB_REF_NAME" release/* -R "$GITHUB_REPOSITORY" \
             --draft --title "Kyn VPN $GITHUB_REF_NAME" --generate-notes
+          gh release edit "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" --draft=false "${kind[@]}"
