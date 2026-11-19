@@ -44,20 +44,34 @@ chmod 700 "$TMP"
 APPLE_ID="${APPLE_ID:-}"
 APPLE_APP_PASSWORD="${APPLE_APP_PASSWORD:-}"
 [ -n "$APPLE_ID" ] || read -rp "Apple ID email (member of team $TEAM_ID): " APPLE_ID
+# An app-specific password belongs to the Apple ID, not to a team, so the one
+# already stored keeps working when switching teams
+HAVE_PASSWORD="$(gh secret list -R "$REPO" --env "$ENV_NAME" --json name -q '.[].name' 2>/dev/null |
+    grep -x APPLE_APP_PASSWORD || true)"
 if [ -z "$APPLE_APP_PASSWORD" ]; then
     echo "Create an app-specific password for it at https://account.apple.com"
     echo "(Sign-In and Security > App-Specific Passwords), then paste it here."
+    if [ -n "$HAVE_PASSWORD" ]; then
+        echo "Leave it empty to keep the one already stored (it can't be checked then)."
+    fi
     read -rsp "App-specific password: " APPLE_APP_PASSWORD
     echo
 fi
-echo "Checking the credentials with the notary service..."
-if ! xcrun notarytool history --apple-id "$APPLE_ID" --team-id "$TEAM_ID" \
-        --password "$APPLE_APP_PASSWORD" >/dev/null 2>"$TMP/notary.err"; then
-    cat "$TMP/notary.err" >&2
-    echo "The notary service rejected these credentials." >&2
+if [ -n "$APPLE_APP_PASSWORD" ]; then
+    echo "Checking the credentials with the notary service..."
+    if ! xcrun notarytool history --apple-id "$APPLE_ID" --team-id "$TEAM_ID" \
+            --password "$APPLE_APP_PASSWORD" >/dev/null 2>"$TMP/notary.err"; then
+        cat "$TMP/notary.err" >&2
+        echo "The notary service rejected these credentials." >&2
+        exit 1
+    fi
+    echo "OK"
+elif [ -n "$HAVE_PASSWORD" ]; then
+    echo "Keeping the stored app-specific password."
+else
+    echo "An app-specific password is required." >&2
     exit 1
 fi
-echo "OK"
 echo
 
 # Export only the chosen identity.  'security export' can only export every
@@ -176,7 +190,7 @@ base64 -i "$TMP/ci.p12" | tr -d '\n' | set_secret MACOS_CERT_P12
 printf '%s' "$P12_PASS" | set_secret MACOS_CERT_PASSWORD
 printf '%s' "$IDENTITY" | set_secret MACOS_CODESIGN_IDENTITY
 printf '%s' "$APPLE_ID" | set_secret APPLE_ID
-printf '%s' "$APPLE_APP_PASSWORD" | set_secret APPLE_APP_PASSWORD
+[ -z "$APPLE_APP_PASSWORD" ] || printf '%s' "$APPLE_APP_PASSWORD" | set_secret APPLE_APP_PASSWORD
 printf '%s' "$TEAM_ID" | set_secret APPLE_TEAM_ID
 echo
 echo "Done.  The next build of master or of a v* tag will be signed and notarized."
