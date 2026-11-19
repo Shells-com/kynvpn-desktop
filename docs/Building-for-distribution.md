@@ -13,6 +13,11 @@ Set environment variables:
 | PIA_SIGNTOOL_CERTFILE | Path to certificate file (if signing with PFX archived cert) |
 | PIA_SIGNTOOL_PASSWORD | Password to decrypt cert file (if signing with encrypted PFX archived cert) |
 | PIA_SIGNTOOL_THUMBPRINT | Thumbprint of certificate - signs with cert from cert store instead of PFX archive |
+| PIA_SIGNTOOL_DLIB, PIA_SIGNTOOL_DMDF | signtool plugin and its metadata file (e.g. Azure Artifact Signing's `Azure.CodeSigning.Dlib.dll`) - every signature is then timestamped |
+| PIA_SIGNTOOL_EXE | (optional) signtool to run instead of the one in `PATH`; a plugin needs a signtool of its own architecture |
+| PIA_SIGNTOOL_TIMESTAMP_URL | (optional) RFC 3161 timestamping service (default `http://timestamp.digicert.com`) |
+
+GitHub Actions signs with [Azure Artifact Signing](https://aka.ms/artifactsigning/), using the variables of the `windows-signing` environment (only `master` and `v*` tags can use it) and logging in to Azure with the job's OIDC token, so no secret is stored.  Run `.github/scripts/setup-windows-signing.sh <subscription ID> [<identity validation ID>]` after `az login` to set it up.
 
 Then call `rake BRAND=kyn VARIANT=release all`
 
@@ -71,5 +76,3 @@ number.
 | `MACOS_CERT_PASSWORD` | Password of the .p12 |
 | `MACOS_CODESIGN_IDENTITY` | Common name of the certificate (becomes `PIA_CODESIGN_CERT`) |
 | `APPLE_ID`, `APPLE_APP_PASSWORD`, `APPLE_TEAM_ID` | Notarization credentials (app-specific password) |
-| `WINDOWS_CERT_PFX` | Base64-encoded .pfx code signing certificate |
-| `WINDOWS_CERT_PASSWORD` | Password of the .pfx |

@@ -12,13 +12,26 @@ module PiaWindows
     # - PIA_SIGNTOOL_THUMBPRINT: sign with a certificate from the cert store
     # - PIA_SIGNTOOL_CERTFILE + GOOGLE_CLOUD_KEY_ID: sign with a key held in
     #   Google Cloud KMS (CERTFILE is then the public certificate)
+    # - PIA_SIGNTOOL_DLIB + PIA_SIGNTOOL_DMDF: sign with a signtool plugin
+    #   (e.g. Azure Artifact Signing's Azure.CodeSigning.Dlib.dll) and its
+    #   metadata file.  Its short-lived certificates require timestamping every
+    #   signature.
+    # Optional:
+    # - PIA_SIGNTOOL_EXE: signtool to run (default: the one vcvars puts in PATH;
+    #   a plugin needs a signtool of its own architecture)
+    # - PIA_SIGNTOOL_TIMESTAMP_URL: RFC 3161 timestamping service
+    SignDlib = ENV['PIA_SIGNTOOL_DLIB']
+    SignDmdf = ENV['PIA_SIGNTOOL_DMDF']
+    SignToolExe = ENV['PIA_SIGNTOOL_EXE'] || 'signtool'
+    TimestampUrl = ENV['PIA_SIGNTOOL_TIMESTAMP_URL'] || 'http://timestamp.digicert.com'
     SignCertFile = ENV['PIA_SIGNTOOL_CERTFILE']
     SignPassword = ENV['PIA_SIGNTOOL_PASSWORD']
     # Also accept the misspelled name used by older docs
     SignThumbprint = ENV['PIA_SIGNTOOL_THUMBPRINT'] || ENV['PIA_SIGNTOOL_THUMBRPINT']
     GCloudKeyId = ENV['GOOGLE_CLOUD_KEY_ID']
     SkipSigning = !ENV['PIA_SKIP_SIGNING'].nil?
-    CanSign = Build::release? && (SignCertFile != nil || SignThumbprint != nil) && !SkipSigning
+    UseDlibSigning = SignDlib != nil && SignDmdf != nil
+    CanSign = Build::release? && (SignCertFile != nil || SignThumbprint != nil || UseDlibSigning) && !SkipSigning
     UseGCloudSigning = SignCertFile != nil && GCloudKeyId != nil
 
     # Base setup for uninstaller/installer; these are built from the same source
@@ -147,7 +160,7 @@ module PiaWindows
     # - description - if non-nil, file description passed to signtool
     def self.signtool(files, first, hash_alg, useTimestamp, description)
         args = [
-            'signtool', # Placed in PATH by vcvars
+            SignToolExe,
             'sign'
         ]
         args << '/as' unless first # append signature if not the first one
@@ -157,13 +170,19 @@ module PiaWindows
         args << '/debug' # Extra information
         if(useTimestamp)
             args << '/tr'
-            args << 'http://timestamp.digicert.com'
+            args << TimestampUrl
             args << '/td'
             args << hash_alg
         end
         # Cert args - can be specified with a file + password, a thumbprint,
-        # or google cloud token. These values are taken from environment variables
-        if UseGCloudSigning
+        # google cloud token, or a signtool plugin. These values are taken from
+        # environment variables
+        if UseDlibSigning
+            args << '/dlib'
+            args << SignDlib
+            args << '/dmdf'
+            args << SignDmdf
+        elsif UseGCloudSigning
             args << '/f'
             args << SignCertFile
             args << '/csp'
@@ -220,7 +239,9 @@ module PiaWindows
         # Get absolute, Windows-style paths
         files = files.map {|f| File.absolute_path(f).gsub!('/', '\\')}
 
-        signtool(files, false, 'sha256', useTimestamp, description)
+        # Plugin certificates (Artifact Signing) are only valid for a few days,
+        # so untimestamped signatures would soon become invalid
+        signtool(files, false, 'sha256', useTimestamp || UseDlibSigning, description)
     end
 
     # Define additional installable artifacts and targets for Windows.

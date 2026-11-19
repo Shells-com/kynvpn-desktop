@@ -17,7 +17,12 @@ name: Build
 #     MACOS_CODESIGN_IDENTITY (certificate common name)
 #   - notarization (needs signing): APPLE_ID, APPLE_APP_PASSWORD,
 #     APPLE_TEAM_ID
-# - Windows signing: WINDOWS_CERT_PFX (base64 .pfx), WINDOWS_CERT_PASSWORD
+# - Windows (Azure Artifact Signing; variables of the 'windows-signing'
+#   environment, limited to master and v* tags): AZURE_CLIENT_ID and
+#   AZURE_TENANT_ID (app registration with a federated credential for that
+#   environment and the Certificate Profile Signer role),
+#   ARTIFACT_SIGNING_ENDPOINT, ARTIFACT_SIGNING_ACCOUNT,
+#   ARTIFACT_SIGNING_PROFILE
 on:
   push:
     branches: [master]
@@ -200,6 +205,12 @@ jobs:
             qt_arch: win64_msvc2022_arm64
             qt_dir: msvc2022_arm64
     runs-on: ${{ matrix.runner }}
+    # Signs with Azure Artifact Signing, configured by the variables of this
+    # environment (only master and v* tags can use it)
+    environment: ${{ (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')) && 'windows-signing' || '' }}
+    permissions:
+      contents: read
+      id-token: write  # Azure login (federated credential of windows-signing)
     env:
       LFS_EXCLUDE: deps/built/linux/**,deps/built/mac/**,deps/dump_syms/dump_syms_mac,deps/dump_syms/dump_syms_linux*.bin
       ARCHITECTURE: ${{ matrix.arch }}
@@ -238,23 +249,63 @@ jobs:
             ${{ matrix.qt_host }} "$QT_VERSION" ${{ matrix.qt_arch }} 'C:/Qt' qtimageformats
           test -f "C:/Qt/$QT_VERSION/${{ matrix.qt_dir }}/bin/windeployqt.exe"
           echo "QTROOT=C:/Qt/$QT_VERSION" >> "$GITHUB_ENV"
-      - name: Prepare signing certificate
+      - name: Set up Artifact Signing
+        if: vars.ARTIFACT_SIGNING_ACCOUNT != ''
         env:
-          WINDOWS_CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
-          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
-        if: env.WINDOWS_CERT_PFX != ''
+          CLIENT_VERSION: 1.0.151
+          CLIENT_SHA256: 35375a4bc4e1102da729fc3d8d9925f774c3baae6b8b7ff6398d948ca9ab0d8a
+          ENDPOINT: ${{ vars.ARTIFACT_SIGNING_ENDPOINT }}
+          ACCOUNT: ${{ vars.ARTIFACT_SIGNING_ACCOUNT }}
+          PROFILE: ${{ vars.ARTIFACT_SIGNING_PROFILE }}
         run: |
-          echo "$WINDOWS_CERT_PFX" | base64 --decode > "$RUNNER_TEMP/cert.pfx"
-          echo "PIA_SIGNTOOL_CERTFILE=$(cygpath -w "$RUNNER_TEMP/cert.pfx")" >> "$GITHUB_ENV"
-          echo "PIA_SIGNTOOL_PASSWORD=$WINDOWS_CERT_PASSWORD" >> "$GITHUB_ENV"
+          dir="$RUNNER_TEMP/artifact-signing"
+          mkdir -p "$dir"
+          # The signtool plugin (x64 only; arm64 runs it emulated)
+          curl -fsSL -o "$dir/client.nupkg" \
+            "https://api.nuget.org/v3-flatcontainer/microsoft.artifactsigning.client/$CLIENT_VERSION/microsoft.artifactsigning.client.$CLIENT_VERSION.nupkg"
+          echo "$CLIENT_SHA256  $dir/client.nupkg" | sha256sum -c -
+          unzip -q "$dir/client.nupkg" 'bin/x64/*' -d "$dir/client"
+          # It needs the x64 .NET 10 runtime
+          curl -fsSL -o "$dir/dotnet-install.ps1" https://dot.net/v1/dotnet-install.ps1
+          pwsh -NoProfile -File "$dir/dotnet-install.ps1" -Runtime dotnet -Channel 10.0 \
+            -Architecture x64 -InstallDir "$(cygpath -w "$dir/dotnet")" -NoPath
+          # ...and an x64 signtool
+          signtool="$(ls "/c/Program Files (x86)/Windows Kits/10/bin/"10.*/x64/signtool.exe | sort -V | tail -n1)"
+          test -n "$signtool"
+          # Only authenticate with the GitHub OIDC token (see Build)
+          python -I -c 'import json, sys; json.dump({"Endpoint": sys.argv[1], "CodeSigningAccountName": sys.argv[2], "CertificateProfileName": sys.argv[3], "ExcludeCredentials": ["EnvironmentCredential", "ManagedIdentityCredential", "SharedTokenCacheCredential", "VisualStudioCredential", "VisualStudioCodeCredential", "AzureCliCredential", "AzurePowerShellCredential", "AzureDeveloperCliCredential", "InteractiveBrowserCredential"]}, open(sys.argv[4], "w"))' \
+            "$ENDPOINT" "$ACCOUNT" "$PROFILE" "$dir/metadata.json"
+          {
+            echo "DOTNET_ROOT_X64=$(cygpath -w "$dir/dotnet")"
+            echo "PIA_SIGNTOOL_EXE=$(cygpath -w "$signtool")"
+            echo "PIA_SIGNTOOL_DLIB=$(cygpath -w "$dir/client/bin/x64/Azure.CodeSigning.Dlib.dll")"
+            echo "PIA_SIGNTOOL_DMDF=$(cygpath -w "$dir/metadata.json")"
+            echo "PIA_SIGNTOOL_TIMESTAMP_URL=http://timestamp.acs.microsoft.com"
+            echo "AZURE_CLIENT_ID=${{ vars.AZURE_CLIENT_ID }}"
+            echo "AZURE_TENANT_ID=${{ vars.AZURE_TENANT_ID }}"
+            echo "AZURE_FEDERATED_TOKEN_FILE=$(cygpath -w "$dir/oidc-token")"
+          } >> "$GITHUB_ENV"
       - name: Build
-        run: rake -j"$NUMBER_OF_PROCESSORS" artifacts
+        run: |
+          if [ -n "${AZURE_FEDERATED_TOKEN_FILE:-}" ]; then
+            # GitHub OIDC tokens expire after a few minutes and the build signs
+            # files for over an hour, so keep a fresh one in the file the
+            # signtool plugin reads (it trades it for an Azure token)
+            token="$(cygpath -u "$AZURE_FEDERATED_TOKEN_FILE")"
+            refresh() {
+              curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+                "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange" |
+                python -I -c 'import json, sys; sys.stdout.write(json.load(sys.stdin)["value"])' > "$token.new" &&
+                mv -f "$token.new" "$token"
+            }
+            refresh
+            (while sleep 60; do refresh || true; done) &
+            trap "kill $!" EXIT
+          fi
+          rake -j"$NUMBER_OF_PROCESSORS" artifacts
       - name: Unit tests
         # Not part of 'artifacts' on Windows (no coverage measurement)
         run: rake -j"$NUMBER_OF_PROCESSORS" test
-      - name: Remove signing certificate
-        if: always()
-        run: rm -f "$RUNNER_TEMP/cert.pfx"
       - uses: actions/upload-artifact@v7
         if: always()
         with:
