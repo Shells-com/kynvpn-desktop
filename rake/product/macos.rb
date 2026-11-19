@@ -1,5 +1,7 @@
 require 'open3'
 require 'shellwords'
+require 'find'
+require 'pathname'
 require_relative '../executable.rb'
 require_relative '../model/probe.rb'
 require_relative '../macinfoplist.rb'
@@ -400,10 +402,18 @@ module PiaMacOS
                     puts "Signing #{filename}"
                     signSingleFile codesignArgs, cert, File.join(bundle, 'Contents', filename)
                 end
+                # The main executable is signed with the bundle itself below.
+                # Signing it on its own would sign the whole bundle while the
+                # other files are being signed.
+                mainExecutable = `plutil -extract CFBundleExecutable raw -o - #{Shellwords.escape(File.join(bundle, 'Contents', 'Info.plist'))}`.strip
+                raise "Can't read CFBundleExecutable of #{bundle}" if !$?.success? || mainExecutable.empty?
+                mainExecutablePath = File.join(bundle, 'Contents', 'MacOS', mainExecutable)
                 bundleDirs = ['Frameworks', 'Library', 'PlugIns', 'Resources', 'MacOS']
                 bundleDirs.each do |subdir|
                     puts "Signing #{subdir} recursively"
-                    signDirRecursively codesignArgs, cert, File.join(bundle, 'Contents', subdir), ['PIA Split Tunnel.app']
+                    signDirRecursively codesignArgs, cert, File.join(bundle, 'Contents', subdir),
+                        ['PIA Split Tunnel.app'], [mainExecutablePath],
+                        machOOnly: subdir == 'Resources'
                 end
                 puts 'Signing the bundle itself'
                 signSingleFile [*codesignArgs, '--force'], cert, bundle
@@ -451,14 +461,51 @@ module PiaMacOS
         Util.shellRun('codesign', *codesignArgs, '--sign', cert, filepath)
     end
 
-    def self.signDirRecursively(codesignArgs, cert, directory, excludeList)
-        # Since we have a lot of small files, we use find to have xargs run codesign in parallel.
+    # Mach-O magic numbers (thin and universal, either byte order)
+    MachOMagics = ["\xFE\xED\xFA\xCE", "\xCE\xFA\xED\xFE", "\xFE\xED\xFA\xCF",
+                   "\xCF\xFA\xED\xFE", "\xCA\xFE\xBA\xBE", "\xBE\xBA\xFE\xCA"]
+                  .map { |m| m.dup.force_encoding(Encoding::BINARY) }
+
+    def self.machO?(path)
+        MachOMagics.include?(File.binread(path, 4).to_s)
+    end
+
+    # Bundle directories nested in an app (their own signature seals their
+    # non-code files)
+    NestedBundleExtensions = ['.app', '.framework', '.bundle', '.plugin',
+                              '.appex', '.systemextension', '.xpc']
+
+    # Sign the code in a directory of the bundle:
+    # - Mach-O files (signing a framework's binary signs the framework)
+    # - unless machOOnly is set (Resources), also the other files outside
+    #   nested bundles: codesign treats anything in the code directories
+    #   (MacOS, Frameworks, ...) as code, scripts included
+    # Directories named in excludeBundles (e.g. bundles signed by someone else)
+    # and the paths in excludeFiles are skipped.
+    def self.signDirRecursively(codesignArgs, cert, directory, excludeBundles,
+                                excludeFiles = [], machOOnly: false)
+        return unless File.directory?(directory)
+        excludeFiles = excludeFiles.map { |f| File.expand_path(f) }
+        files = []
+        Find.find(directory) do |f|
+            if File.directory?(f) && excludeBundles.include?(File.basename(f))
+                Find.prune
+            elsif File.file?(f) && !File.symlink?(f) &&
+                  !excludeFiles.include?(File.expand_path(f))
+                inBundle = Pathname.new(f).relative_path_from(Pathname.new(directory))
+                    .dirname.each_filename.any? { |c| NestedBundleExtensions.include?(File.extname(c)) }
+                files << f if machO?(f) || (!machOOnly && !inBundle)
+            end
+        end
+        return if files.empty?
+        # There are a lot of files; have xargs run codesign in parallel.
         # --force replaces the ad-hoc signatures the linker and macdeployqt
         # already put on the binaries.
-        args = [*codesignArgs, '--force', '--sign', cert].map { |a| Shellwords.escape(a) }.join(' ')
-        excludes = excludeList.map { |item| "-e #{Shellwords.escape(item)}" }.join(' ')
-        `find #{Shellwords.escape(directory)} -type f -print | grep -v #{excludes} | xargs -P 8 -I {} codesign #{args} {}`
+        output, status = Open3.capture2e('xargs', '-0', '-n', '1', '-P', '8',
+                                         'codesign', *codesignArgs, '--force', '--sign', cert,
+                                         stdin_data: files.join("\0"))
+        puts output
         # xargs exits with 123 if any codesign failed
-        raise "Signing files in #{directory} failed" unless $?.success?
+        raise "Signing files in #{directory} failed" unless status.success?
     end
 end

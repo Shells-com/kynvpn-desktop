@@ -76,16 +76,29 @@ if [ -z "$APP_ID" ]; then
     APP_ID="$(az ad app create --display-name "$APP_NAME" --sign-in-audience AzureADMyOrg --query appId -o tsv)"
 fi
 az ad sp show --id "$APP_ID" >/dev/null 2>&1 || az ad sp create --id "$APP_ID" >/dev/null
-SUBJECT="repo:$REPO:environment:$ENV_NAME"
-if ! az ad app federated-credential list --id "$APP_ID" --query '[].subject' -o tsv | grep -xF "$SUBJECT" >/dev/null; then
-    echo "Adding the federated credential for $SUBJECT..."
-    az ad app federated-credential create --id "$APP_ID" --parameters "{
-        \"name\": \"github-$ENV_NAME\",
-        \"issuer\": \"https://token.actions.githubusercontent.com\",
-        \"subject\": \"$SUBJECT\",
-        \"audiences\": [\"api://AzureADTokenExchange\"]
-    }" >/dev/null
-fi
+# GitHub's OIDC subject names the repo either by name or, with ID-based
+# subjects, as owner@ownerID/repo@repoID; trust both forms
+OWNER_ID="$(gh api "repos/$REPO" -q .owner.id)"
+REPO_ID="$(gh api "repos/$REPO" -q .id)"
+EXISTING_SUBJECTS="$(az ad app federated-credential list --id "$APP_ID" --query '[].subject' -o tsv)"
+for form in name ids; do
+    if [ "$form" = name ]; then
+        SUBJECT="repo:${REPO}:environment:${ENV_NAME}"
+        CRED_NAME="github-${ENV_NAME}"
+    else
+        SUBJECT="repo:${REPO%%/*}@${OWNER_ID}/${REPO#*/}@${REPO_ID}:environment:${ENV_NAME}"
+        CRED_NAME="github-${ENV_NAME}-ids"
+    fi
+    if ! grep -xF "$SUBJECT" <<<"$EXISTING_SUBJECTS" >/dev/null; then
+        echo "Adding the federated credential for $SUBJECT..."
+        az ad app federated-credential create --id "$APP_ID" --parameters "{
+            \"name\": \"$CRED_NAME\",
+            \"issuer\": \"https://token.actions.githubusercontent.com\",
+            \"subject\": \"$SUBJECT\",
+            \"audiences\": [\"api://AzureADTokenExchange\"]
+        }" >/dev/null
+    fi
+done
 echo "App:          $APP_NAME ($APP_ID)"
 
 # Signer role (named "Trusted Signing ..." before the rename)
