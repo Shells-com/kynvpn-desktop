@@ -57,7 +57,13 @@ of `rake artifacts` as workflow artifacts.  Pushing a `v<version>` tag (e.g.
 `v1.0.0`) also sets the product version and creates a draft release with the
 installers.
 
-Signing is enabled by repository secrets; builds are unsigned without them:
+Signing is enabled by secrets; builds are unsigned without them.  The macOS
+secrets belong to the `macos-signing` environment, which only `master` and
+`v*` tags can use, so other branches and pull requests build unsigned.  Run
+`.github/scripts/setup-macos-signing.sh <team ID>` on a Mac with the Developer
+ID Application certificate in its login keychain to set them up.  Builds of
+`master` and of tags are notarized; tag builds also get a release version
+number.
 
 | Secret | Use |
 |--------|-----|

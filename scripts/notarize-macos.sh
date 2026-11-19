@@ -38,19 +38,23 @@ APP_BUNDLE=$3
 
 echo "Performing notarization."
 echo "Release zip: $RELEASE_ZIP"
-echo "Bundle ID: $RELEASE_ZIP"
+echo "Bundle ID: $BUNDLE_ID"
 echo "App Bundle: $APP_BUNDLE"
 echo "Team ID: $PIA_APPLE_TEAM_ID"
-# Outputs are written to stderr
-# Upload the tool for notarization
-# (Tee through /dev/stderr so the output is logged in case we exit here due to set -e)
-notarizeOutput=$( (xcrun notarytool submit --team-id "$PIA_APPLE_TEAM_ID" --apple-id "$PIA_APPLE_ID_EMAIL" --password "$PIA_APPLE_ID_PASSWORD" --wait --timeout "$PIA_APPLE_NOTARIZE_TIMEOUT" --progress "$RELEASE_ZIP") 2>&1 | tee /dev/stderr)
-notarizeExit=$?
-echo "$notarizeOutput"
+# Upload the tool for notarization (tee through /dev/stderr to show the
+# progress as it happens)
+notarizeExit=0
+notarizeOutput=$(set -o pipefail; xcrun notarytool submit --team-id "$PIA_APPLE_TEAM_ID" --apple-id "$PIA_APPLE_ID_EMAIL" --password "$PIA_APPLE_ID_PASSWORD" --wait --timeout "$PIA_APPLE_NOTARIZE_TIMEOUT" --progress "$RELEASE_ZIP" 2>&1 | tee /dev/stderr) || notarizeExit=$?
 
-if [ $notarizeExit -ne 0 ]
+if [ $notarizeExit -ne 0 ] || ! grep -q '^ *status: Accepted' <<<"$notarizeOutput"
 then
     echo "Notarization failed, will exit without stapling"
+    # Show Apple's report of the problems
+    submissionId=$(sed -n 's/^ *id: //p' <<<"$notarizeOutput" | head -n1)
+    if [ -n "$submissionId" ]
+    then
+        xcrun notarytool log "$submissionId" --team-id "$PIA_APPLE_TEAM_ID" --apple-id "$PIA_APPLE_ID_EMAIL" --password "$PIA_APPLE_ID_PASSWORD" || true
+    fi
     exit 3
 fi
 
