@@ -301,6 +301,8 @@ module PiaDesktop
 
         artifacts.install(debugArchivePkg, '')
         artifacts.install(Executable::Qt.artifact('qtversion.txt'), '')
+        # The version string (first line), used by CI for the update metadata
+        artifacts.install(version.artifact('version.txt'), '')
 
         # Add desktop targets to :all.
         # If code coverage is available, :artifacts covers everything already, since all

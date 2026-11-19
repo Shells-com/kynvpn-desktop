@@ -114,19 +114,22 @@ QJsonDocument JsonRefresher::readReply(QByteArray responsePayload) const
         }
     }
 
-    // If a key was supplied, check that there is a valid signature.
-    if (!_signatureKey.isNull())
+    // If a key was supplied, check that there is a valid signature.  (A
+    // required signature is checked even if the key is somehow empty, which
+    // then fails.)
+    if (!_signatureKey.isNull() || _signatureLibraryCheck == SignatureLibraryCheck::Strict)
     {
         if (signature.isEmpty())
         {
             qError() << "Missing signature in response for" << _name;
             return {};
         }
-        if (!verifySignature(_signatureKey, signature, responsePayload))
+        if (!verifySignature(_signatureKey, signature, responsePayload, _signatureLibraryCheck))
         {
             // Urgh; piaproxy.net alters content in-transit without re-signing it...
             // Make a single educated guess what the original content was.
-            if (!verifySignature(_signatureKey, signature, QByteArray(responsePayload).replace(".piaproxy.net", ".privateinternetaccess.com")))
+            if (_signatureLibraryCheck == SignatureLibraryCheck::Strict ||
+                !verifySignature(_signatureKey, signature, QByteArray(responsePayload).replace(".piaproxy.net", ".privateinternetaccess.com")))
             {
                 qError() << "Invalid signature in response for" << _name;
                 return {};
@@ -215,6 +218,14 @@ void JsonRefresher::start(std::shared_ptr<ApiBase> pApiBaseUris)
     refreshTimerElapsed();
     // Start refreshing periodically.
     _refreshTimer.start();
+}
+
+void JsonRefresher::requireSignature(const QByteArray &signatureKey)
+{
+    // Must be set before starting; it would affect an in-flight request
+    Q_ASSERT(!isRunning());
+    _signatureKey = signatureKey;
+    _signatureLibraryCheck = SignatureLibraryCheck::Strict;
 }
 
 void JsonRefresher::startOrOverride(std::shared_ptr<ApiBase> pApiBaseUris,

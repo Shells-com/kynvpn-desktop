@@ -62,6 +62,31 @@ of `rake artifacts` as workflow artifacts.  Pushing a `v<version>` tag (e.g.
 `v1.0.0`) also sets the product version and creates a draft release with the
 installers.
 
+### Releases and updates
+
+The release job (`v*` tags only) signs each release with the Ed25519 key in
+the `RELEASE_SIGNING_KEY` secret of the `release-signing` environment
+([`sign-release.py`](../.github/scripts/sign-release.py)) and attaches:
+
+- `SHA256SUMS` and `SHA256SUMS.sig`, its signature, for people verifying a
+  download against [`kynvpn-release.pub`](kynvpn-release.pub)
+- `update.json`, the signed update metadata: for each platform, the version,
+  the installer's URL and its SHA-256
+
+The client checks `https://github.com/Shells-com/kynvpn-desktop/releases/latest/download/update.json`
+(the latest published, non-prerelease release; drafts are not visible).  It
+ignores metadata that isn't signed with the key in
+`Environment::defaultUpdatePublicKey` (`daemon/src/environment.cpp`, the same
+as `kynvpn-release.pub`), and discards a downloaded installer whose SHA-256
+doesn't match.  Publishing the draft release is what offers the update to
+users.  There is no beta update channel.
+
+The private key is backed up in the login keychain of the Mac it was made on
+("Kyn VPN release signing key (Ed25519)").  Losing it means installed clients
+can't be updated any more; if it leaks, ship a client with a new key as soon
+as possible.  Testing against another key: put its public key in
+`update_key_override.pem` in the daemon's settings directory.
+
 Signing is enabled by secrets; builds are unsigned without them.  The macOS
 secrets belong to the `macos-signing` environment, which only `master` and
 `v*` tags can use, so other branches and pull requests build unsigned.  Run

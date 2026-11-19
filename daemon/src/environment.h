@@ -40,6 +40,7 @@ class Environment : public QObject
 
 public:
     static const QByteArray defaultRegionsListPublicKey;
+    static const QByteArray defaultUpdatePublicKey;
 
 public:
     Environment(const StateModel &state);
@@ -56,6 +57,7 @@ private:
     // Load the regions list public key, either from the override or the
     // default.
     void loadRegionsListPublicKey();
+    void loadUpdatePublicKey();
 
     // Apply the override value to an ApiBase if it's present and valid (used
     // by loadApiBase())
@@ -104,6 +106,9 @@ public:
     // Get the regions list public key (PEM format)
     QByteArray getRegionsListPublicKey() const {return _regionsListPublicKey;}
 
+    // Get the public key the update metadata is signed with (PEM format)
+    QByteArray getUpdatePublicKey() const {return _updatePublicKey;}
+
     // Get the API bases.  These always return a non-nullptr shared_ptr.
     // Base URIs for normal API requests.
     const std::shared_ptr<ApiBase> &getApiv1() {Q_ASSERT(_pApiv1); return _pApiv1;}
@@ -139,6 +144,7 @@ private:
     std::unordered_map<QString, QByteArray> _authorities;
     std::shared_ptr<PrivateCA> _pRsa4096CA;
     QByteArray _regionsListPublicKey;
+    QByteArray _updatePublicKey;
     // API bases - these are always valid.  They're in shared_ptrs so callers
     // using them can keep the object alive even if we replace them.
     std::shared_ptr<ApiBase> _pApiv1, _pApiv2, _pApiv5, _pModernRegionsListApi,

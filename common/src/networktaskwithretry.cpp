@@ -172,8 +172,9 @@ Async<QByteArray> NetworkTaskWithRetry::sendRequest()
     // which has resulted in some near-misses in the past when load balancers,
     // meta proxies, etc. have been reconfigured.
     //
-    // Only same-origin redirects are allowed; there's no reason to allow
-    // cross-origin redirects.  Do this with a user handler since Qt normally
+    // Only same-origin redirects are allowed (and GitHub's release asset
+    // redirects, see below); there's no reason to allow other cross-origin
+    // redirects.  Do this with a user handler since Qt normally
     // distinguishes `https://host/` and `https://host:443/`; treat these as the
     // same.
     request.setAttribute(QNetworkRequest::Attribute::RedirectPolicyAttribute,
@@ -220,9 +221,15 @@ Async<QByteArray> NetworkTaskWithRetry::sendRequest()
             // accepted since they are unchanged, but if something odd like a
             // protocol-relative URL shows up, this will handle it properly.
             const auto &targetResolved = requestUri.resolved(url);
+            // GitHub serves release assets (the update metadata) by
+            // redirecting from github.com to its asset host.  That content is
+            // signed, so the host serving it doesn't matter.
+            const bool gitHubAsset = requestUri.host() == QStringLiteral("github.com") &&
+                targetResolved.host().endsWith(QStringLiteral(".githubusercontent.com")) &&
+                targetResolved.port(443) == 443;
             if(targetResolved.scheme() == QStringLiteral("https") &&
-                targetResolved.host() == requestUri.host() &&
-                targetResolved.port(443) == requestUri.port(443))
+                ((targetResolved.host() == requestUri.host() &&
+                  targetResolved.port(443) == requestUri.port(443)) || gitHubAsset))
             {
                 qInfo() << "Accepted redirect from"
                     << ApiResource{requestUri.toString()} << "to"

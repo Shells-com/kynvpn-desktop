@@ -17,6 +17,7 @@
 // <https://www.gnu.org/licenses/>.
 
 #include "daemon/src/updatedownloader.h"
+#include <common/src/openssl.h>
 #include <common/src/testshim.h>
 #include "version.h"
 #include "brand.h"
@@ -29,7 +30,9 @@
 
 These tests validate UpdateDownloader.  Mainly, they validate the precedence
 between the GA and beta channels, comparisons with the current daemon version,
-and toggling the beta-related settings.
+and toggling the beta-related settings.  They also check that update metadata
+is only accepted with a valid signature and an installer hash, and the hash
+check of downloaded installers.
 
 These tests are not intended to provide coverage of SemVersion or JsonRefresher,
 which have separate tests.
@@ -38,24 +41,47 @@ which have separate tests.
 
 namespace TestData {
 
+// Ed25519 key pair signing the mock update metadata.  This is a test key, it
+// has nothing to do with the product's update key.
+const QByteArray updateTestPrivKey = QByteArrayLiteral(
+    "-----BEGIN PRIVATE KEY-----\n"
+    "MC4CAQAwBQYDK2VwBCIEIDaMrB1Ql3j8rmQ+qurDxC13nu7BOLlRSbwpwsmWQ72M\n"
+    "-----END PRIVATE KEY-----"
+);
+const QByteArray updateTestPubKey = QByteArrayLiteral(
+    "-----BEGIN PUBLIC KEY-----\n"
+    "MCowBQYDK2VwAyEAT5p+fVzHIUUipcmNxrxLnQwrA0FXG/Xy/462y+TzTrQ=\n"
+    "-----END PUBLIC KEY-----"
+);
+// Another key, whose signatures must be rejected
+const QByteArray otherPrivKey = QByteArrayLiteral(
+    "-----BEGIN PRIVATE KEY-----\n"
+    "MC4CAQAwBQYDK2VwBCIEIGKUtZpMoRl/9tlkgFvVGHzeaVv2KWXCrW9e7MZXJQ+z\n"
+    "-----END PRIVATE KEY-----"
+);
+
+// Installer hashes for the mock updates (the tests never download them)
+const QString hashA = QStringLiteral("aa00000000000000000000000000000000000000000000000000000000000001");
+const QString hashB = QStringLiteral("bb00000000000000000000000000000000000000000000000000000000000002");
+
 const QString &gaChannel = QStringLiteral("release");
 const QString &betaChannel = QStringLiteral("beta");
 
 // Newer release
 // The UpdateDownloader uses the actual version even in unit tests, so the
 // 'newer' version is set really high.
-const Update newerGa{QStringLiteral("https://unit.test/v100"), QStringLiteral("100.0.0"), {}};
+const Update newerGa{QStringLiteral("https://unit.test/v100"), QStringLiteral("100.0.0"), {}, hashA};
 // Older release
-const Update olderGa{QStringLiteral("https://unit.test/v080"), QStringLiteral("0.8.0"), {}};
+const Update olderGa{QStringLiteral("https://unit.test/v080"), QStringLiteral("0.8.0"), {}, hashB};
 // The same release.
 // (The version here could actually have pre-release tags depending on the
 // version being built.)
-const Update sameGa{QStringLiteral("https://unit.test/vCurrent"), QString::fromStdString(Version::semanticVersion()), {}};
+const Update sameGa{QStringLiteral("https://unit.test/vCurrent"), QString::fromStdString(Version::semanticVersion()), {}, hashA};
 
 // The newer/older betas are relative to the "newer" GA release.
-const Update newerBeta{QStringLiteral("https://unit.test/v101b"), QStringLiteral("101.0.0-beta.3"), {}};
-const Update newerBeta2{QStringLiteral("https://unit.test/v102b"), QStringLiteral("102.0.0-beta.2"), {}};
-const Update olderBeta{QStringLiteral("https://unit.test/v99b"), QStringLiteral("99.0.0-beta.7"), {}};
+const Update newerBeta{QStringLiteral("https://unit.test/v101b"), QStringLiteral("101.0.0-beta.3"), {}, hashA};
+const Update newerBeta2{QStringLiteral("https://unit.test/v102b"), QStringLiteral("102.0.0-beta.2"), {}, hashB};
+const Update olderBeta{QStringLiteral("https://unit.test/v99b"), QStringLiteral("99.0.0-beta.7"), {}, hashB};
 
 // Payload for no build at all on a channel.
 // (Just an empty 'latest_version_piax' object.)
@@ -68,20 +94,36 @@ bool buildIsBeta = false;
 
 }
 
-// Build the update payload JSON from an Update object.
+// Append the signature to update metadata, as the release signing does
+QByteArray signPayload(const QByteArray &payload,
+                       const QByteArray &privKey = TestData::updateTestPrivKey)
+{
+    const QByteArray signature{signEd25519(privKey, payload)};
+    Q_ASSERT(!signature.isEmpty());
+    return payload + "\n\n" + signature.toBase64() + "\n";
+}
+
+// Build the update payload JSON from an Update object (unsigned).
 // The platform name, update version, and update URI are assumed not to contain
 // characters that would have to be escaped in JSON; no escaping is performed.
-QByteArray buildUpdatePayload(const Update &update)
+QByteArray buildUnsignedUpdatePayload(const Update &update)
 {
     return (R"(
 {
     ")" + QStringLiteral(BRAND_UPDATE_JSON_KEY_NAME) + R"(": {
         ")" + UpdateChannel::platformName + R"(": {
             "version": ")" + update.version() + R"(",
-            "download": ")" + update.uri() + R"("
+            "download": ")" + update.uri() + R"(",
+            "sha256": ")" + update.sha256() + R"("
         }
     }
 })").toUtf8();
+}
+
+// Build the signed update payload from an Update object.
+QByteArray buildUpdatePayload(const Update &update)
+{
+    return signPayload(buildUnsignedUpdatePayload(update));
 }
 
 // Enqueue an update payload reply
@@ -123,6 +165,7 @@ public:
         _pUpdateApi = std::make_shared<FixedApiBase>(
                 std::initializer_list<QString>{BRAND_UPDATE_APIS}
             );
+        _downloader.setSignatureKey(TestData::updateTestPubKey);
         setGaUpdateChannel(TestData::gaChannel);
         setBetaUpdateChannel(TestData::betaChannel);
     }
@@ -358,7 +401,7 @@ private slots:
         DownloaderFixture fixture;
 
         auto pGaReply = enqueueUpdateReply(TestData::newerGa);
-        auto pBetaReply = MockNetworkManager::enqueueReply(TestData::noBuildPayload);
+        auto pBetaReply = MockNetworkManager::enqueueReply(signPayload(TestData::noBuildPayload));
 
         fixture.enableBetaChannel(true);
         fixture.run(true);
@@ -440,6 +483,97 @@ private slots:
         QCOMPARE(fixture._updateSpy[3][2].value<Update>(), TestData::newerGa);
         QCOMPARE(fixture._updateSpy[3][3].value<Update>(), TestData::newerBeta2);
         QCOMPARE(fixture._updateSpy[3][4].value<std::vector<QString>>(), std::vector<QString>{});
+    }
+
+private:
+    // Load one GA payload and check that no update is offered from it
+    void checkRejected(const QByteArray &payload)
+    {
+        DownloaderFixture fixture;
+        QSignalSpy consumeSpy{&MockNetworkManager::_replyConsumed, &ReplyConsumedSignal::signal};
+
+        auto pGaReply = MockNetworkManager::enqueueReply(payload);
+        fixture.run(true);
+        QVERIFY(consumeSpy.wait(100));
+        pGaReply->queueFinished();
+        // The metadata is discarded, the (empty) update doesn't change
+        QVERIFY(!fixture._updateSpy.wait(500));
+    }
+
+private slots:
+    // Unsigned metadata is ignored
+    void testUnsignedRejected()
+    {
+        checkRejected(buildUnsignedUpdatePayload(TestData::newerGa));
+    }
+
+    // Metadata signed by another key is ignored
+    void testWrongKeyRejected()
+    {
+        checkRejected(signPayload(buildUnsignedUpdatePayload(TestData::newerGa),
+                                  TestData::otherPrivKey));
+    }
+
+    // Metadata altered after signing is ignored
+    void testTamperedRejected()
+    {
+        QByteArray payload{buildUpdatePayload(TestData::newerGa)};
+        payload.replace("https://unit.test/v100", "https://evil.test/v100");
+        checkRejected(payload);
+    }
+
+    // Signed metadata without a valid installer hash offers no update
+    void testMissingHashRejected()
+    {
+        const Update noHash{TestData::newerGa.uri(), TestData::newerGa.version(), {}, {}};
+        QVERIFY(!noHash.isValid());
+        checkRejected(buildUpdatePayload(noHash));
+        QByteArray shortHash{buildUnsignedUpdatePayload(TestData::newerGa)};
+        shortHash.replace(TestData::hashA.toLatin1(), TestData::hashA.left(63).toLatin1());
+        checkRejected(signPayload(shortHash));
+    }
+
+    // Without a signing key, no metadata is accepted, even signed
+    void testNoKeyRejectsAll()
+    {
+        DownloaderFixture fixture;
+        fixture._downloader.setSignatureKey({});
+        // The key applies to channels set afterwards
+        fixture.setGaUpdateChannel(TestData::gaChannel);
+        QSignalSpy consumeSpy{&MockNetworkManager::_replyConsumed, &ReplyConsumedSignal::signal};
+        auto pGaReply = enqueueUpdateReply(TestData::newerGa);
+        fixture.run(true);
+        QVERIFY(consumeSpy.wait(100));
+        pGaReply->queueFinished();
+        QVERIFY(!fixture._updateSpy.wait(500));
+    }
+
+    // Update only keeps well-formed hashes, lowercased
+    void testUpdateHash()
+    {
+        const Update upper{QStringLiteral("https://unit.test/u"), QStringLiteral("1.0.0"), {},
+                           TestData::hashA.toUpper()};
+        QVERIFY(upper.isValid());
+        QCOMPARE(upper.sha256(), TestData::hashA);
+        const Update notHex{QStringLiteral("https://unit.test/u"), QStringLiteral("1.0.0"), {},
+                            QString(64, QLatin1Char('g'))};
+        QVERIFY(!notHex.isValid());
+        QCOMPARE(notHex.uri(), QString{});
+        QCOMPARE(notHex.version(), QString{});
+    }
+
+    // Downloaded installers are checked against the hash from the metadata
+    void testInstallerHash()
+    {
+        const QByteArray installer{"installer contents"};
+        const QByteArray actual{QCryptographicHash::hash(installer, QCryptographicHash::Sha256)};
+        const QString expected{QString::fromLatin1(actual.toHex())};
+        QVERIFY(UpdateDownloader::checkInstallerHash(actual, expected));
+        // Another file, or no expected hash, never passes
+        QVERIFY(!UpdateDownloader::checkInstallerHash(
+            QCryptographicHash::hash("other", QCryptographicHash::Sha256), expected));
+        QVERIFY(!UpdateDownloader::checkInstallerHash(actual, {}));
+        QVERIFY(!UpdateDownloader::checkInstallerHash({}, {}));
     }
 };
 

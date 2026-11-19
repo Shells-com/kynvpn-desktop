@@ -674,13 +674,15 @@ Daemon::Daemon(QObject* parent)
             &Daemon::onUpdateDownloadFinished);
     connect(&_updateDownloader, &UpdateDownloader::downloadFailed, this,
             &Daemon::onUpdateDownloadFailed);
+    _updateDownloader.setSignatureKey(_environment.getUpdatePublicKey());
     _updateDownloader.setGaUpdateChannel(_settings.updateChannel(), _environment.getUpdateApi());
     _updateDownloader.setBetaUpdateChannel(_settings.betaUpdateChannel(), _environment.getUpdateApi());
     _updateDownloader.enableBetaChannel(_settings.offerBetaUpdates(), _environment.getUpdateApi());
+    // (A cached update without a hash, from an older version, is dropped)
     _updateDownloader.reloadAvailableUpdates(Update{_data.gaChannelVersionUri(), _data.gaChannelVersion(),
-                                                    _data.gaChannelOsRequired()},
+                                                    _data.gaChannelOsRequired(), _data.gaChannelSha256()},
                                              Update{_data.betaChannelVersionUri(), _data.betaChannelVersion(),
-                                                    _data.betaChannelOsRequired()},
+                                                    _data.betaChannelOsRequired(), _data.betaChannelSha256()},
                                              _data.flags());
 
     if(!dataFileRead)
@@ -3570,10 +3572,12 @@ void Daemon::onUpdateRefreshed(const Update &availableUpdate,
     _data.gaChannelVersion(gaUpdate.version());
     _data.gaChannelVersionUri(gaUpdate.uri());
     _data.gaChannelOsRequired(gaUpdate.osRequired());
+    _data.gaChannelSha256(gaUpdate.sha256());
     _data.flags(flags);
     _data.betaChannelVersion(betaUpdate.version());
     _data.betaChannelVersionUri(betaUpdate.uri());
     _data.betaChannelOsRequired(betaUpdate.osRequired());
+    _data.betaChannelSha256(betaUpdate.sha256());
 
     // Only set osUnsupported if no updates are available.  It's possible, for
     // example, that there might be a supported GA update available, and also a

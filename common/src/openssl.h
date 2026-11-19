@@ -29,7 +29,25 @@
 #include <QSslCertificate>
 
 // Verify a signature with a PEM public key: Ed25519, or RSA with SHA-256.
-bool COMMON_EXPORT verifySignature(const QByteArray& publicKeyPem, const QByteArray& signature, const QByteArray& data);
+// What verifySignature() does if OpenSSL can't be loaded
+enum class SignatureLibraryCheck
+{
+    // Accept the signature (for data that is also protected otherwise, like
+    // the server lists, so a broken install still works)
+    Lenient,
+    // Reject it (for data that must never be accepted unverified, like update
+    // metadata)
+    Strict,
+};
+
+// Verify an Ed25519 signature, or an RSA signature with SHA-256
+bool COMMON_EXPORT verifySignature(const QByteArray& publicKeyPem, const QByteArray& signature,
+                                   const QByteArray& data,
+                                   SignatureLibraryCheck libraryCheck = SignatureLibraryCheck::Lenient);
+
+// Sign data with an Ed25519 private key (PEM).  Returns an empty array on
+// failure.  The product never signs anything; this is for unit tests.
+QByteArray COMMON_EXPORT signEd25519(const QByteArray &privateKeyPem, const QByteArray &data);
 
 // PrivateCA can be used to validate a certificate chain issued from a private
 // CA certificate.

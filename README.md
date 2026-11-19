@@ -6,6 +6,22 @@ Kyn VPN Desktop is a fork of the [Private Internet Access Desktop Client](https:
 
 The project uses Qt 6.12 for cross-platform development, both in the client and daemon. The client GUI is based on Qt Quick, which uses declarative markup language and JavaScript and offers hardware accelerated rendering when available. Qt and Qt Quick tend to be more memory and CPU efficient compared to web-based UI frameworks like Electron or NW.js.
 
+## Verifying downloads
+
+Each [release](https://github.com/Shells-com/kynvpn-desktop/releases) has a
+`SHA256SUMS` file signed with the Kyn VPN release key,
+[`docs/kynvpn-release.pub`](docs/kynvpn-release.pub).  To check an installer,
+download it with `SHA256SUMS` and `SHA256SUMS.sig`, then:
+
+```console
+> openssl pkeyutl -verify -pubin -inkey kynvpn-release.pub -rawin -in SHA256SUMS -sigfile SHA256SUMS.sig
+Signature Verified Successfully
+> sha256sum --check --ignore-missing SHA256SUMS
+```
+
+The client verifies its updates the same way (see
+[Building for distribution](docs/Building-for-distribution.md#releases-and-updates)).
+
 ## Building and developing
 
 The client is intended to be built on the target platform; Windows builds are built on Windows, macOS builds on macOS, and Linux builds on Linux.  [GitHub Actions](.github/workflows/build.yml) builds every platform.

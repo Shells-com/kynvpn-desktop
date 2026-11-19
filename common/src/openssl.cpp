@@ -93,6 +93,10 @@ static int (*EVP_DigestVerifyInit)(EVP_MD_CTX* ctx, EVP_PKEY_CTX** pctx, const E
 static int (*EVP_DigestUpdate)(EVP_MD_CTX* ctx, const void* d, size_t cnt) = nullptr;
 static int (*EVP_DigestVerifyFinal)(EVP_MD_CTX* ctx, const unsigned char* sig, size_t siglen) = nullptr;
 static int (*EVP_DigestVerify)(EVP_MD_CTX* ctx, const unsigned char* sig, size_t siglen, const unsigned char* tbs, size_t tbslen) = nullptr;
+// Signing (signEd25519(), used by unit tests)
+static EVP_PKEY* (*PEM_read_bio_PrivateKey)(BIO* bp, EVP_PKEY** x, pem_password_cb* cb, void* u) = nullptr;
+static int (*EVP_DigestSignInit)(EVP_MD_CTX* ctx, EVP_PKEY_CTX** pctx, const EVP_MD* type, ENGINE* e, EVP_PKEY* pkey) = nullptr;
+static int (*EVP_DigestSign)(EVP_MD_CTX* ctx, unsigned char* sigret, size_t* siglen, const unsigned char* tbs, size_t tbslen) = nullptr;
 // EVP_PKEY_id() in OpenSSL 1.1, renamed in 3.0 (EVP_PKEY_id is now a macro)
 static int (*EVP_PKEY_get_base_id)(const EVP_PKEY* pkey) = nullptr;
 
@@ -218,6 +222,9 @@ static bool checkOpenSSL()
     RESOLVE_OPENSSL_FUNCTION(EVP_DigestUpdate);
     RESOLVE_OPENSSL_FUNCTION(EVP_DigestVerifyFinal);
     RESOLVE_OPENSSL_FUNCTION(EVP_DigestVerify);
+    RESOLVE_OPENSSL_FUNCTION(PEM_read_bio_PrivateKey);
+    RESOLVE_OPENSSL_FUNCTION(EVP_DigestSignInit);
+    RESOLVE_OPENSSL_FUNCTION(EVP_DigestSign);
     RESOLVE_OPENSSL_FUNCTION(EVP_PKEY_get_base_id);
 
     RESOLVE_OPENSSL_FUNCTION(X509_free);
@@ -304,11 +311,20 @@ static EVP_PKEY* createPublicKeyFromPem(const QByteArray& pem)
     return result;
 }
 
-bool verifySignature(const QByteArray& publicKeyPem, const QByteArray& signature, const QByteArray& data)
+bool verifySignature(const QByteArray& publicKeyPem, const QByteArray& signature,
+                     const QByteArray& data, SignatureLibraryCheck libraryCheck)
 {
-    // For the time being, treat OpenSSL errors (e.g. unable to find the
-    // library) as though the signature validated successfully.
-    if (!checkOpenSSL()) return true;
+    // Unless the check is strict, treat OpenSSL errors (e.g. unable to find
+    // the library) as though the signature validated successfully.
+    if (!checkOpenSSL())
+    {
+        if (libraryCheck == SignatureLibraryCheck::Strict)
+        {
+            qError() << "Can't verify signature, OpenSSL is not available";
+            return false;
+        }
+        return true;
+    }
 
     EVP_PKEY* pkey = createPublicKeyFromPem(publicKeyPem);
     if (!pkey) return false;
@@ -348,6 +364,33 @@ bool verifySignature(const QByteArray& publicKeyPem, const QByteArray& signature
     }, nullptr);
 
     return false;
+}
+
+QByteArray signEd25519(const QByteArray &privateKeyPem, const QByteArray &data)
+{
+    if (!checkOpenSSL() || privateKeyPem.isEmpty())
+        return {};
+
+    BIO *bio = BIO_new_mem_buf(const_cast<char*>(privateKeyPem.data()), privateKeyPem.size());
+    EVP_PKEY *pkey = PEM_read_bio_PrivateKey(bio, nullptr, nullptr, nullptr);
+    BIO_free(bio);
+    if (!pkey) return {};
+    AT_SCOPE_EXIT(EVP_PKEY_free(pkey));
+    if (EVP_PKEY_get_base_id(pkey) != EVP_PKEY_ED25519) return {};
+
+    auto ctx = EVP_MD_CTX_new();
+    if (!ctx) return {};
+    AT_SCOPE_EXIT(EVP_MD_CTX_free(ctx));
+
+    QByteArray signature{64, Qt::Uninitialized};
+    size_t sigLen = static_cast<size_t>(signature.size());
+    if (1 != EVP_DigestSignInit(ctx, nullptr, nullptr, nullptr, pkey) ||
+        1 != EVP_DigestSign(ctx, reinterpret_cast<unsigned char*>(signature.data()), &sigLen,
+                            reinterpret_cast<const unsigned char*>(data.data()),
+                            static_cast<size_t>(data.size())))
+        return {};
+    signature.resize(static_cast<qsizetype>(sigLen));
+    return signature;
 }
 
 class OpenSSLDeleter

@@ -36,6 +36,15 @@ const QByteArray Environment::defaultRegionsListPublicKey = QByteArrayLiteral(
     "-----END PUBLIC KEY-----"
 );
 
+// Ed25519 key signing the update metadata (update.json) and SHA256SUMS of
+// the GitHub releases.  The private key is the RELEASE_SIGNING_KEY secret of
+// the release-signing environment (see .github/workflows/build.yml).
+const QByteArray Environment::defaultUpdatePublicKey = QByteArrayLiteral(
+    "-----BEGIN PUBLIC KEY-----\n"
+    "MCowBQYDK2VwAyEAnABGGw5GgAErJgK/NWLDKCgNFxmOaxuR0MbIkuNPsEU=\n"
+    "-----END PUBLIC KEY-----"
+);
+
 Environment::Environment(const StateModel &state)
     : _state{state}
 {
@@ -114,6 +123,33 @@ void Environment::loadRegionsListPublicKey()
 
     // Load default
     _regionsListPublicKey = defaultRegionsListPublicKey;
+}
+
+void Environment::loadUpdatePublicKey()
+{
+    // Only root/admin can write the settings directory
+    auto overrideFilePath = Path::DaemonSettingsDir / QStringLiteral("update_key_override.pem");
+
+    if(QFile::exists(overrideFilePath))
+    {
+        QByteArray fileData = readFile(overrideFilePath);
+        if(!fileData.contains("-----BEGIN PUBLIC KEY-----"))
+        {
+            qWarning() << "Override update key" << overrideFilePath
+                << "is not a PEM public key";
+            emit overrideFailed(QStringLiteral("update key"));
+            // Proceed to load default
+        }
+        else
+        {
+            qInfo() << "Overriding update key with:" << overrideFilePath;
+            emit overrideActive(QStringLiteral("update key"));
+            _updatePublicKey = fileData;
+            return;
+        }
+    }
+
+    _updatePublicKey = defaultUpdatePublicKey;
 }
 
 void Environment::applyApiBaseOverride(bool overridePresent,
@@ -288,6 +324,7 @@ void Environment::reload()
     _pRsa4096CA = std::make_shared<PrivateCA>(getCertificateAuthority(QStringLiteral("RSA-4096")));
 
     loadRegionsListPublicKey();
+    loadUpdatePublicKey();
 
     loadApiBases();
 }

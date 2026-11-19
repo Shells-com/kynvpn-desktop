@@ -130,9 +130,11 @@ public:
     JsonField(QString, gaChannelVersion, {})
     JsonField(QString, gaChannelVersionUri, {})
     JsonField(QString, gaChannelOsRequired, {})
+    JsonField(QString, gaChannelSha256, {})
     JsonField(QString, betaChannelVersion, {})
     JsonField(QString, betaChannelVersionUri, {})
     JsonField(QString, betaChannelOsRequired, {})
+    JsonField(QString, betaChannelSha256, {})
 
 #if defined(Q_OS_WINDOWS)
     // Original service command for the Dnscache service on Windows.  PIA must

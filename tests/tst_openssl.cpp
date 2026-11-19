@@ -200,6 +200,32 @@ private slots:
         QVERIFY(!verifySignature(piaRsaPubKey, ed25519Sig1, samplePayload1));
     }
 
+    // signEd25519() produces signatures verifySignature() accepts (strictly)
+    void testEd25519Signing()
+    {
+        // Test key pair, not a product key
+        const QByteArray privKey = QByteArrayLiteral(
+            "-----BEGIN PRIVATE KEY-----\n"
+            "MC4CAQAwBQYDK2VwBCIEIDaMrB1Ql3j8rmQ+qurDxC13nu7BOLlRSbwpwsmWQ72M\n"
+            "-----END PRIVATE KEY-----"
+        );
+        const QByteArray pubKey = QByteArrayLiteral(
+            "-----BEGIN PUBLIC KEY-----\n"
+            "MCowBQYDK2VwAyEAT5p+fVzHIUUipcmNxrxLnQwrA0FXG/Xy/462y+TzTrQ=\n"
+            "-----END PUBLIC KEY-----"
+        );
+        const QByteArray signature{signEd25519(privKey, samplePayload1)};
+        QCOMPARE(signature.size(), 64);
+        QVERIFY(verifySignature(pubKey, signature, samplePayload1, SignatureLibraryCheck::Strict));
+        QVERIFY(!verifySignature(pubKey, signature, samplePayload2, SignatureLibraryCheck::Strict));
+        QVERIFY(!verifySignature(ed25519TestPubKey, signature, samplePayload1, SignatureLibraryCheck::Strict));
+        // An empty key never verifies, and can't sign; an RSA key isn't used
+        // for signing
+        QVERIFY(!verifySignature({}, signature, samplePayload1, SignatureLibraryCheck::Strict));
+        QVERIFY(signEd25519({}, samplePayload1).isEmpty());
+        QVERIFY(signEd25519(pubKey, samplePayload1).isEmpty());
+    }
+
     void testPiaCACertificate()
     {
         auto pCA = defaultEnv->getRsa4096CA();

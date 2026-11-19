@@ -24,6 +24,7 @@
 #include "async.h"
 #include "testshim.h"
 #include "filewatcher.h"
+#include "openssl.h"
 #include <QObject>
 #include <QJsonDocument>
 #include <QByteArray>
@@ -73,6 +74,11 @@ private:
     bool isCacheValid(const QJsonDocument &cache);
 
 public:
+    // Require the resource to carry a valid signature by this key (PEM), even
+    // if OpenSSL can't be loaded (see SignatureLibraryCheck::Strict).  Content
+    // without a valid signature is discarded.  Set before start().
+    void requireSignature(const QByteArray &signatureKey);
+
     // Start trying to load the resource.
     void start(std::shared_ptr<ApiBase> pApiBaseUris);
 
@@ -143,6 +149,7 @@ public:
     // abandons the task.
     Async<void> _pFetchTask;
     QByteArray _signatureKey;
+    SignatureLibraryCheck _signatureLibraryCheck{SignatureLibraryCheck::Lenient};
     nullable_t<FileWatcher> _pOverrideFileWatcher;
 };
 

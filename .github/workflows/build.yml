@@ -318,9 +318,19 @@ jobs:
     needs: [linux, macos, windows]
     if: github.ref_type == 'tag'
     runs-on: ubuntu-24.04
+    # RELEASE_SIGNING_KEY: Ed25519 key signing SHA256SUMS and update.json (the
+    # client only installs updates described by a signed update.json, and
+    # checks the installer's SHA-256).  Only v* tags can use this environment.
+    environment: release-signing
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            .github/scripts/
+            daemon/src/environment.cpp
+          sparse-checkout-cone-mode: false
       - uses: actions/download-artifact@v8
         with:
           pattern: kyn-*
@@ -332,7 +342,22 @@ jobs:
             \( -name 'kyn-*.run' -o -name 'kyn-*.zip' -o -name 'kyn-*.exe' \) \
             -exec cp {} release/ \;
           ls -la release
-          cd release && sha256sum * > SHA256SUMS
+      - name: Sign the release
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: |
+          key="$RUNNER_TEMP/release-signing.pem"
+          trap 'rm -f "$key"' EXIT
+          (umask 077 && printf '%s\n' "$RELEASE_SIGNING_KEY" > "$key")
+          mapfile -t versions < <(find dist -maxdepth 4 -path '*/artifacts/*' -name version.txt)
+          python3 -I .github/scripts/sign-release.py release "${versions[@]}" \
+            --repo "$GITHUB_REPOSITORY" --tag "$GITHUB_REF_NAME" --key "$key"
+          # Check against the public key the client has
+          sed -n '/defaultUpdatePublicKey = /,/);/p' daemon/src/environment.cpp |
+            grep -o '"[^"]*\\n"\|"-----END PUBLIC KEY-----"' | sed 's/^"//; s/\\n"$//; s/"$//' > "$RUNNER_TEMP/release.pub"
+          openssl pkeyutl -verify -pubin -inkey "$RUNNER_TEMP/release.pub" -rawin \
+            -in release/SHA256SUMS -sigfile release/SHA256SUMS.sig
+          cat release/SHA256SUMS
       - name: Create draft release
         env:
           GH_TOKEN: ${{ github.token }}
