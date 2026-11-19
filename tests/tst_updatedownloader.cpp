@@ -117,7 +117,7 @@ QByteArray buildUnsignedUpdatePayload(const Update &update)
             "sha256": ")" + update.sha256() + R"("
         }
     }
-})").toUtf8();
+})").toUtf8().trimmed();  // JsonRefresher only finds the signature after a JSON object
 }
 
 // Build the signed update payload from an Update object.
