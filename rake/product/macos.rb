@@ -1,4 +1,5 @@
 require 'open3'
+require 'shellwords'
 require_relative '../executable.rb'
 require_relative '../model/probe.rb'
 require_relative '../macinfoplist.rb'
@@ -382,7 +383,8 @@ module PiaMacOS
                 # so a dev build can still be made with a self-signed cert (hardened
                 # runtime requires a team ID)
                 if(notarizeBuild)
-                    codesignArgs << '--options=runtime'
+                    # Notarization also requires a secure timestamp
+                    codesignArgs << '--options=runtime' << '--timestamp'
                 end
 
                 if ENV['PIA_DEV_ST_APP'] != nil
@@ -451,6 +453,12 @@ module PiaMacOS
 
     def self.signDirRecursively(codesignArgs, cert, directory, excludeList)
         # Since we have a lot of small files, we use find to have xargs run codesign in parallel.
-        `find "#{directory}" -type f -print | grep -v -e #{excludeList.map { |item| "'#{item}'" }.join(' -e ')} | xargs -P 8 -I {} codesign #{codesignArgs.join('" "')} --sign "#{cert}" {}`
+        # --force replaces the ad-hoc signatures the linker and macdeployqt
+        # already put on the binaries.
+        args = [*codesignArgs, '--force', '--sign', cert].map { |a| Shellwords.escape(a) }.join(' ')
+        excludes = excludeList.map { |item| "-e #{Shellwords.escape(item)}" }.join(' ')
+        `find #{Shellwords.escape(directory)} -type f -print | grep -v #{excludes} | xargs -P 8 -I {} codesign #{args} {}`
+        # xargs exits with 123 if any codesign failed
+        raise "Signing files in #{directory} failed" unless $?.success?
     end
 end
