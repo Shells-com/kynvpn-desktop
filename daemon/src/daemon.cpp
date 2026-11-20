@@ -3402,7 +3402,7 @@ void Daemon::upgradeSettings(bool existingSettingsFile)
         const auto &legacyProxyValue = _settings.get("proxy").toString();
         if(legacyProxyValue == QStringLiteral("none"))
         {
-            _settings.proxyType(QStringLiteral("shadowsocks"));
+            _settings.proxyType(QStringLiteral("custom"));
             _settings.proxyEnabled(false);
         }
         else if(legacyProxyValue == QStringLiteral("custom") ||
@@ -3412,12 +3412,16 @@ void Daemon::upgradeSettings(bool existingSettingsFile)
             _settings.proxyEnabled(true);
         }
     }
+    // Kyn VPN has no Shadowsocks servers; the only proxy is SOCKS5 ("custom").
+    if (_settings.proxyType() == QStringLiteral("shadowsocks")) {
+        _settings.proxyType(QStringLiteral("custom"));
+        _settings.proxyEnabled(false);
+    }
     if (_settings.proxyType() == QStringLiteral("custom") &&
         _settings.proxyCustom().host().isEmpty()) {
-        //  if proxy type "custom" is selected but the SOCKS5 host is
-        //  empty, revert proxy type to "shadowsocks" just to avoid
+        //  If the SOCKS5 proxy is enabled without a host, disable it to avoid
         //  the situation where the connection fails silently. PP-1062
-        _settings.proxyType(QStringLiteral("shadowsocks"));
+        _settings.proxyEnabled(false);
     }
     if(previous < SemVersion{3, 3, 0}) {
         const auto &oldServiceQualityFlag = _settings.get("sendServiceQualityEvents").toBool();

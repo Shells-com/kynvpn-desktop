@@ -129,7 +129,8 @@ public:
     //  - "custom" - Use proxyCustom
     //  - "shadowsocks" - Use a PIA shadowsocks region - proxyShadowsocksLocation
     // May have additional values in the future, such as using a PIA region.
-    JsonField(QString, proxyType, QStringLiteral("shadowsocks"), {"custom", "shadowsocks"})
+    // Kyn VPN has no Shadowsocks servers, so only "custom" (SOCKS5) is offered
+    JsonField(QString, proxyType, QStringLiteral("custom"), {"custom", "shadowsocks"})
 
     // Whether a proxy is enabled, used in conjunction with "proxyType"
     JsonField(bool, proxyEnabled, false)

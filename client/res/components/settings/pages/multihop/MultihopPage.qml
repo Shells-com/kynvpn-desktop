@@ -70,101 +70,12 @@ Page {
       }
     }
 
-    PrivacyInput {
-      enabled: multiHopAvailable
-      id: proxySelector
-      Layout.columnSpan: 2
-      label: uiTranslate("ConnectionPage", "Proxy")
-      info: ""
-      itemHeight: 35
-      function customProxyHost() {
-        var proxyCustomValue = Daemon.settings.proxyCustom
-        return proxyCustomValue ? proxyCustomValue.host : ""
-      }
-
-
-      itemList: {
-        // "Shadowsocks" is not translated because it is a proper noun
-        var items = ["Shadowsocks", uiTranslate("ConnectionPage", "SOCKS5 Proxy")]
-        return items
-      }
-      activeItem: {
-        switch (Daemon.settings.proxyType) {
-        case 'custom':
-          return 1
-        case 'shadowsocks':
-        default:
-          return 0
-        }
-      }
-
-      onUpdated: function (index) {
-        var key = ['shadowsocks', 'custom'][index]
-
-        if (key === 'custom' && !customProxyHost()) {
-          customProxyDialog.updateAndOpen();
-        } else {
-          Daemon.applySettings({'proxyType': key})
-        }
-
-      }
-    }
-
-    EditHeading {
-      id: shadowsocksHeading
-      Layout.fillWidth: true
-      Layout.topMargin: 5
-      visible: Daemon.settings.proxyType === "shadowsocks"
-      enabled: multiHopAvailable
-      // Not translated
-      label: "Shadowsocks"
-      onEditClicked: {
-          shadowsocksRegionDialog.updateAndOpen();
-      }
-    }
-
-    Rectangle {
-      visible: Daemon.settings.proxyType === "shadowsocks"
-      opacity: multiHopAvailable ? 1.0 : 0.6
-      Layout.columnSpan: 2
-      Layout.fillWidth: true
-      Layout.preferredHeight: 80
-      radius: 10
-      color: Theme.settings.inlayRegionColor
-
-      RowLayout {
-        anchors.fill: parent
-        anchors.margins: 20
-
-        FlagImage {
-          countryCode: {
-            let nextId = Daemon.state.shadowsocksLocations.nextLocation.id
-            return Daemon.state.getRegionCountryCode(nextId)
-          }
-        }
-
-        StaticText {
-          Layout.leftMargin: 10
-          text: {
-            if(Daemon.state.shadowsocksLocations.nextLocation)
-              return Messages.displayLocation(Daemon.state.shadowsocksLocations.nextLocation, Daemon.settings.proxyShadowsocksLocation === "auto")
-            return "";
-          }
-
-          color: Theme.dashboard.textColor
-        }
-
-        Item {
-          Layout.fillWidth: true
-        }
-      }
-    }
-
+    // Kyn VPN has no Shadowsocks servers, so the only proxy is a SOCKS5
+    // proxy ("custom" proxyType)
     EditHeading {
       id: socksHeading
       Layout.fillWidth: true
       Layout.topMargin: 5
-      visible: Daemon.settings.proxyType === "custom"
       enabled: multiHopAvailable
       label: uiTranslate("ConnectionPage", "SOCKS5 Proxy")
       onEditClicked: {
@@ -173,7 +84,6 @@ Page {
     }
 
     Rectangle {
-      visible: Daemon.settings.proxyType === "custom"
       opacity: multiHopAvailable ? 1.0 : 0.6
       Layout.columnSpan: 2
       Layout.fillWidth: true
@@ -267,7 +177,4 @@ Page {
     id: customProxyDialog
   }
 
-  ShadowsocksRegionDialog {
-    id: shadowsocksRegionDialog
-  }
 }
