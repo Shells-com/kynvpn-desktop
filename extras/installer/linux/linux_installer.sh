@@ -427,7 +427,7 @@ function checkAlternateArchitecture() {
         # a glibc version mismatch).
         echo "This build does not appear to be compatible with this system."
         echo "This may be due to an architecture or library mismatch."
-        echo "If your distribution is recent and supported, consider trying a different build of PIA."
+        echo "If your distribution is recent and supported, consider trying a different build of $appName."
         requestConfirmation "Continue installing $buildArchitecture?"
     fi
 }
@@ -436,7 +436,7 @@ function promptIncompatibleUpgrade() {
     echo "This upgrade does not appear to be compatible with this system."
     echo "If this is an older distribution, it may no longer be supported."
     echo ""
-    echo "The PIA installation will not be modified."
+    echo "The $appName installation will not be modified."
     echo "You can stop receiving update notifications if this distribution is out of support."
     requestConfirmation "Stop receiving update notifications?"
     # If the user answers 'no', requestConfirmation exits.
@@ -473,7 +473,7 @@ function isBuildExecutable() {
 
 function checkArchitectureSupport() {
     HOST_PIA_ARCHITECTURE="$(guessNativeArchitecture)"
-    echo "Installing PIA for $buildArchitecture, system is $(uname -m)"
+    echo "Installing $appName for $buildArchitecture, system is $(uname -m)"
 
     # If PIA is already installed with this architecture, assume we can upgrade
     # it, even if it doesn't seem to be executable.  This indicates that the

@@ -315,6 +315,7 @@ class PiaVersion
         srcContent.gsub!('{{BRAND_SHORT}}', productShortName)
         srcContent.gsub!('{{BRAND_ID}}', Build::ProductIdentifier)
         srcContent.gsub!('{{BRAND_HELPDESK_LINK}}', Build::BrandInfo['helpDeskLink'])
+        srcContent.gsub!('{{BRAND_LINUX_APP_NAME}}', Build::BrandInfo['linuxAppName'])
         # Used by Mac install helper
         srcContent.gsub!('{{PIA_CODESIGN_CERT}}', ENV['PIA_CODESIGN_CERT'] || '')
         srcContent.gsub!('{{PIA_PRODUCT_VERSION}}', Build::VersionBase)

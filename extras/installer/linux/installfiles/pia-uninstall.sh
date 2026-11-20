@@ -147,10 +147,12 @@ if [[ "$1" == "startuninstall" ]] ; then
         sudo rm "${ctlSymlinkPath}"
     fi
 
-    [ -f "~/.config/autostart/${brandCode}vpn.desktop" ] && rm "~/.config/autostart/${brandCode}vpn.desktop"
+    [ -f "$HOME/.config/autostart/${brandCode}vpn.desktop" ] && rm "$HOME/.config/autostart/${brandCode}vpn.desktop"
     [ -f "/usr/share/pixmaps/${brandCode}vpn.png" ] && sudo rm "/usr/share/pixmaps/${brandCode}vpn.png"
     [ -f "/etc/apport/blacklist.d/${brandCode}vpn" ] && sudo rm "/etc/apport/blacklist.d/${brandCode}vpn"
-    [ -e ~/.config/privateinternetaccess ] && rm -rf ~/.config/privateinternetaccess/
+    # The client's settings (QStandardPaths::AppConfigLocation).  Only this
+    # brand's: other brands' clients use other directories.
+    [ -e ~/.config/{{BRAND_LINUX_APP_NAME}} ] && rm -rf ~/.config/{{BRAND_LINUX_APP_NAME}}/
     echoPass "Removed $appName System files"
     sudo rm -rf "/opt/${brandCode}vpn/"
     removeGroups $groupName $hnsdGroupName

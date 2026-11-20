@@ -589,7 +589,7 @@ DWORD Installer::workerThreadMain()
             InstallerError::abort(IDS_MB_REQUIRESNETWORKING);
         }
 
-    #ifdef INSTALLER
+    #if defined(INSTALLER) && BRAND_MIGRATES_LEGACY
         auto alphaPath = getShellFolder(CSIDL_PROGRAM_FILES) + L"\\piaX";
         auto alphaDaemonDataPath = getShellFolder(CSIDL_COMMON_APPDATA) + L"\\piaX";
         auto alphaClientDataPath = getShellFolder(CSIDL_LOCAL_APPDATA) + L"\\piaX";
@@ -679,7 +679,10 @@ DWORD Installer::workerThreadMain()
             tasks.addNew<ExecuteUninstallDataTask>(g_installPath);
         }
 
-        // Remove any piaX alpha install (files and shortcuts only)
+    #if BRAND_MIGRATES_LEGACY
+        // Remove any piaX alpha install (files and shortcuts only).  That is
+        // PIA's own alpha; other brands must not touch it (or import its
+        // account).
         if (PathFileExistsW(alphaPath.c_str()))
         {
             tasks.addNew<CaptionTask>(IDS_CAPTION_REMOVINGPREVIOUSVERSION);
@@ -692,6 +695,7 @@ DWORD Installer::workerThreadMain()
             tasks.addNew<RemoveDirectoryTask>(alphaDaemonDataPath, true);
             tasks.addNew<RemoveDirectoryTask>(alphaClientDataPath, true);
         }
+    #endif
 
         // Copy new files
         tasks.addNew<PayloadTask>(g_installPath);

@@ -261,7 +261,7 @@ elif [[ "$1" == "show-install-failure" ]]; then
     dialog "Error: Installation failed.\n\nContact support if this problem reoccurs." 'buttons {"Exit"} default button "Exit"'
 
 elif [[ "$1" == "show-failure-helper" ]]; then
-    dialog "Error: Installation failed.\n\nThe install helper has been disabled by another application\nTo enable it, open a terminal and run:\n     sudo launchctl enable system/com.privateinternetaccess.vpn.installhelper\nThen try installing again." 'buttons {"Exit"} default button "Exit"'
+    dialog "Error: Installation failed.\n\nThe install helper has been disabled by another application\nTo enable it, open a terminal and run:\n     sudo launchctl enable system/$brandIdentifier.installhelper\nThen try installing again." 'buttons {"Exit"} default button "Exit"'
 
 elif [[ "$1" == "uninstall" ]] ; then ##########################################
 
@@ -435,8 +435,9 @@ else ###########################################################################
     # Reload the PF rules
     silent_pfctl -f /etc/pf.conf || true
 
-    # Quietly remove old piaX files if present
-    if [ -d "/Applications/piaX.app" ] && grep -qF "com.privateinternetaccess.vpn" "/Applications/piaX.app/Contents/Info.plist" 2> /dev/null ; then
+    # Quietly remove old piaX files if present (PIA's own alpha; other brands
+    # must not touch it)
+    if [ "$brandCode" = "pia" ] && [ -d "/Applications/piaX.app" ] && grep -qF "com.privateinternetaccess.vpn" "/Applications/piaX.app/Contents/Info.plist" 2> /dev/null ; then
         while pkill -f "^/Applications/piaX.app/Contents/MacOS/" 2>> "$logFile" ; do
             sleep 0.5
         done
