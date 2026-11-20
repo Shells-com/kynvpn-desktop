@@ -425,8 +425,13 @@ void LinuxFirewall::updateRules(const FirewallParams &params)
     else
         disableRouteLocalNet();
 
-     _pFilter->replaceAnchor(TableEnum::Filter, IPVersion::IPv4, "110.blockVpnIP",
-                            {qs::format("-d % -j REJECT", params.externalVpnIp)});
+    // The external VPN IP isn't known until connected (the anchor is disabled
+    // until then); don't create an invalid rule without it
+    if(params.externalVpnIp.empty())
+        _pFilter->replaceAnchor(TableEnum::Filter, IPVersion::IPv4, "110.blockVpnIP", {});
+    else
+        _pFilter->replaceAnchor(TableEnum::Filter, IPVersion::IPv4, "110.blockVpnIP",
+                                {qs::format("-d % -j REJECT", params.externalVpnIp)});
 
     _appDnsInfo = appDnsInfo;
     _adapterName = adapterName;
