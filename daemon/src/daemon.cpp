@@ -84,7 +84,6 @@ namespace
 
     // Resource paths for various regions-related resource (relative to the API
     // base)
-    const QString shadowsocksRegionsResource{QStringLiteral("shadow_socks")};
     // The servers list is in the PIA v6 format (see buildModernLocations())
     const QString modernRegionsResource{QStringLiteral("vpninfo/servers/v6")};
     const QString modernRegionMetaResource{QStringLiteral("vpninfo/regions/v2")};
@@ -265,9 +264,6 @@ Daemon::Daemon(QObject* parent)
     , _modernRegionMetaRefresher{QStringLiteral("modern regions meta"),
                              modernRegionMetaResource, regionsInitialLoadInterval,
                              modernRegionsMetaRefreshInterval}
-    , _shadowsocksRefresher{QStringLiteral("Shadowsocks regions"),
-                            shadowsocksRegionsResource,
-                            regionsInitialLoadInterval, regionsRefreshInterval}
     , _publicIpRefresher{QStringLiteral("Public IP Address"),
                             ipLookupResource,
                             publicIpLoadInterval, publicIpRefreshInterval}
@@ -546,12 +542,6 @@ Daemon::Daemon(QObject* parent)
             [this](){Daemon::setOverrideActive(QStringLiteral("modern regions meta"));});
     connect(&_modernRegionMetaRefresher, &JsonRefresher::overrideFailed, this,
             [this](){Daemon::setOverrideFailed(QStringLiteral("modern regions meta"));});
-    connect(&_shadowsocksRefresher, &JsonRefresher::contentLoaded, this,
-            &Daemon::shadowsocksRegionsLoaded);
-    connect(&_shadowsocksRefresher, &JsonRefresher::overrideActive, this,
-            [this](){Daemon::setOverrideActive(QStringLiteral("shadowsocks list"));});
-    connect(&_shadowsocksRefresher, &JsonRefresher::overrideFailed, this,
-            [this](){Daemon::setOverrideFailed(QStringLiteral("shadowsocks list"));});
     connect(&_publicIpRefresher, &JsonRefresher::contentLoaded, this,
             &Daemon::publicIpLoaded);
 
@@ -585,11 +575,8 @@ Daemon::Daemon(QObject* parent)
                                                Path::ModernRegionMetaBundle,
                                                _environment.getRegionsListPublicKey(),
                                                QJsonDocument{_data.modernRegionMeta()});
-        _shadowsocksRefresher.startOrOverride(environment().getModernRegionsListApi(),
-                                              Path::ModernShadowsocksOverride,
-                                              Path::ModernShadowsocksBundle,
-                                              _environment.getRegionsListPublicKey(),
-                                              QJsonDocument{_data.cachedModernShadowsocksList()});
+        // Kyn VPN has no Shadowsocks servers, so the Shadowsocks regions list
+        // isn't fetched; the locations are built without it.
         updatePublicIpRefresher(_connection->state());
         _updateDownloader.run(true, _environment.getUpdateApi());
 
@@ -611,7 +598,6 @@ Daemon::Daemon(QObject* parent)
         _updateDownloader.run(false, _environment.getUpdateApi());
         _modernRegionRefresher.stop();
         _modernRegionMetaRefresher.stop();
-        _shadowsocksRefresher.stop();
         _dedicatedIpRefreshTimer.stop();
         _modernLatencyTracker.stop();
         queueNotification(&Daemon::RPC_disconnectVPN);
@@ -2237,7 +2223,6 @@ void Daemon::vpnStateChanged(VPNConnection::State state,
         // but this is still helpful in case we were not able to load the
         // resource then.
         _modernRegionRefresher.refresh();
-        _shadowsocksRefresher.refresh();
     }
     else
     {
@@ -2287,7 +2272,6 @@ void Daemon::vpnStateChanged(VPNConnection::State state,
 
         // Perform a refresh immediately after connect so we get a new IP on reconnect.
         _modernRegionRefresher.refresh();
-        _shadowsocksRefresher.refresh();
 
         // If we haven't obtained a token yet, try to do that now that we're
         // connected (the API is likely reachable through the tunnel).
@@ -2604,26 +2588,6 @@ void Daemon::rebuildActiveLocations()
     rebuildModernLocations(_data.cachedModernRegionsList(),
                            _data.cachedModernShadowsocksList(),
                            _data.modernRegionMeta());
-}
-
-void Daemon::shadowsocksRegionsLoaded(const QJsonDocument &shadowsocksRegionsJsonDoc)
-{
-    const auto &shadowsocksRegionsObj = shadowsocksRegionsJsonDoc.array();
-
-    // It's unlikely that the Shadowsocks regions list could totally hose us,
-    // but the same resiliency is here for robustness.
-    if(!rebuildModernLocations(_data.cachedModernRegionsList(), shadowsocksRegionsObj, _data.modernRegionMeta()))
-    {
-        qWarning() << "Shadowsocks location data could not be loaded.  Received"
-            << shadowsocksRegionsJsonDoc;
-        // Don't update cachedModernShadowsocksList, keep the last content
-        // (which might still be usable, the new content is no good).
-        // Don't treat this as a successful load (don't notify JsonRefresher)
-        return;
-    }
-
-    _data.cachedModernShadowsocksList(shadowsocksRegionsObj);
-    _shadowsocksRefresher.loadSucceeded();
 }
 
 void Daemon::modernRegionsLoaded(const QJsonDocument &modernRegionsJsonDoc)

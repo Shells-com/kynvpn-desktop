@@ -146,7 +146,6 @@ module PiaDesktop
         # (the same resources the daemon fetches, see daemon.cpp)
         serverListUri = Build::BrandInfo['brandServerListUri']
         {
-            'modern_shadowsocks.json': "#{serverListUri}shadow_socks",
             'modern_servers.json': "#{serverListUri}vpninfo/servers/v6",
             'modern_region_meta.json': "#{serverListUri}vpninfo/regions/v2"
         }.each do |k, v|
@@ -162,16 +161,10 @@ module PiaDesktop
                     # Fetch from the web API (write with "binary" mode so LF is not
                     # converted to CRLF on Windows)
                     response = Net::HTTP.get_response(URI(v))
-                    if response.is_a?(Net::HTTPSuccess)
-                        File.binwrite(t.name, response.body)
-                    elsif k == :'modern_shadowsocks.json'
-                        # Shadowsocks is optional; ship an empty list (the
-                        # daemon will still try to fetch it)
-                        puts "warning: #{v}: HTTP #{response.code}, shipping an empty list"
-                        File.binwrite(t.name, '[]')
-                    else
+                    if !response.is_a?(Net::HTTPSuccess)
                         raise "Can't fetch #{v}: HTTP #{response.code}"
                     end
+                    File.binwrite(t.name, response.body)
                 end
             end
             stage.install(fetchedFile, :res)

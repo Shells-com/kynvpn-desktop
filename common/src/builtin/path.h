@@ -180,12 +180,10 @@ public:
     static Path WireguardInterfaceFile;
 
     // Region override files
-    static Path ModernShadowsocksOverride;
     static Path ModernRegionOverride;
     static Path ModernRegionMetaOverride;
 
     // Bundled region files
-    static Path ModernShadowsocksBundle;
     static Path ModernRegionBundle;
     static Path ModernRegionMetaBundle;
 #ifdef Q_OS_WIN

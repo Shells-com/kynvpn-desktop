@@ -64,10 +64,8 @@ Path Path::UnboundConfigFile;
 Path Path::UnboundDnsStubConfigFile;
 Path Path::WireguardExecutable;
 Path Path::WireguardInterfaceFile;
-Path Path::ModernShadowsocksOverride;
 Path Path::ModernRegionOverride;
 Path Path::ModernRegionMetaOverride;
-Path Path::ModernShadowsocksBundle;
 Path Path::ModernRegionBundle;
 Path Path::ModernRegionMetaBundle;
 #ifdef Q_OS_WIN
@@ -271,10 +269,8 @@ void Path::initializePostApp()
     DaemonHelperIpcSocket = DaemonDataDir / "helper_ipc.sock";
 #endif
 
-    ModernShadowsocksOverride = DaemonSettingsDir / "modern_shadowsocks_override.json";
     ModernRegionOverride = DaemonSettingsDir / "modern_regions_override.json";
     ModernRegionMetaOverride = DaemonSettingsDir / "modern_region_meta_override.json";
-    ModernShadowsocksBundle = ResourceDir / "modern_shadowsocks.json";
     ModernRegionBundle = ResourceDir / "modern_servers.json";
     ModernRegionMetaBundle = ResourceDir / "modern_region_meta.json";
 
