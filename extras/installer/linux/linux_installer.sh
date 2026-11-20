@@ -106,7 +106,7 @@ function startClient() {
 
 function configureSystemd() {
     # install the service
-    sudo cp "$root/installfiles/piavpn.service" "$systemdServiceLocation"
+    sudo cp "$root/installfiles/${brandCode}vpn.service" "$systemdServiceLocation"
     sudo chmod 644 "$systemdServiceLocation"
 
     echoPass "Created $serviceName service"
@@ -120,7 +120,7 @@ function configureSystemd() {
 }
 
 function configureSysvinit() {
-    sudo cp "$root/installfiles/piavpn.sysvinit.service" "$sysvinitServiceLocation"
+    sudo cp "$root/installfiles/${brandCode}vpn.sysvinit.service" "$sysvinitServiceLocation"
     sudo chmod 755 "$sysvinitServiceLocation"
     sudo update-rc.d "$serviceName" defaults
     # If this is an upgrade, the daemon exited when we deleted the file (it
@@ -135,7 +135,7 @@ function configureSysvinit() {
 }
 
 function configureOpenrc() {
-    sudo cp "$root/installfiles/piavpn.openrc.service" "$openrcServiceLocation"
+    sudo cp "$root/installfiles/${brandCode}vpn.openrc.service" "$openrcServiceLocation"
     sudo chmod 755 "$openrcServiceLocation"
     sudo rc-update add $serviceName default
     sudo rc-service $serviceName start
@@ -307,8 +307,8 @@ function installPia() {
     echoPass "Copied $appName files"
 
     # Allow us to run unbound without root
-    if sudo setcap 'cap_net_bind_service=+ep' "$installDir/bin/pia-unbound" 2>/dev/null; then
-        echoPass "Allow non-root $installDir/bin/pia-unbound to bind to privileged ports"
+    if sudo setcap 'cap_net_bind_service=+ep' "$installDir/bin/${brandCode}-unbound" 2>/dev/null; then
+        echoPass "Allow non-root $installDir/bin/${brandCode}-unbound to bind to privileged ports"
     fi
 
     sudo mkdir -p "$daemonDataPath"
@@ -327,7 +327,7 @@ function installPia() {
     if [ ! -d "/usr/share/applications" ]; then
         sudo mkdir -p /usr/share/applications/
     fi
-    sudo cp "$root/installfiles/piavpn.desktop" "/usr/share/applications/${brandCode}vpn.desktop"
+    sudo cp "$root/installfiles/${brandCode}vpn.desktop" "/usr/share/applications/${brandCode}vpn.desktop"
     if hash update-desktop-database 2>/dev/null; then
         # Silence output from update-desktop-database; it dumps errors for _any_
         # quirks in installed .desktop files, not just ours.
@@ -606,7 +606,7 @@ function processOpts() {
             ;;
         *)
             echo "Unrecognized option: '$1'"
-            echo "Type: 'pia-linux-<version>.run -- -h' to see the available options."
+            echo "Type: '${brandCode}-linux-<version>.run -- -h' to see the available options."
             exit 1
             ;;
         esac
