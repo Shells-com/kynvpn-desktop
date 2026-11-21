@@ -35,6 +35,8 @@ readonly installDir="/opt/${brandCode}vpn"
 readonly daemonSettingsPath="$installDir/etc"
 readonly daemonDataPath="$installDir/var"
 readonly daemonResPath="$installDir/share"
+# Present when the user chose --skip-service, so upgrades keep that choice
+readonly skipServiceMarker="$daemonSettingsPath/.skip-service"
 readonly oldSettingsPath="/$HOME/.pia_manager/data"
 readonly systemdServiceLocation="/etc/systemd/system/${brandCode}vpn.service"
 readonly sysvinitServiceLocation="/etc/init.d/${brandCode}vpn"
@@ -553,9 +555,11 @@ function autoDetectSystem() {
     elif [ -f "$sysvinitServiceLocation" ]; then
         echo "Detected a previous sysvinit install - assuming sysvinit"
         BOOT_MANAGER=sysvinit
-    # pia is installed but no service detected, assume "none"
-    elif [ -f "$installDir/bin/${brandCode}-daemon" ]; then
-        echo "Detected a previous install but no service installed - assuming no service should be configured"
+    # The user chose --skip-service for a previous install.  (A previous
+    # install without a service isn't enough: an install that failed partway
+    # leaves the files without the service.)
+    elif [ -f "$skipServiceMarker" ]; then
+        echo "Detected a previous install without a service (--skip-service) - assuming no service should be configured"
         BOOT_MANAGER=none
     # rc-status command should only exist on openrc systems
     elif rc-status > /dev/null 2>&1; then
@@ -668,6 +672,14 @@ fi
 # the daemon data directory, so it will enable tracing early in startup
 if [ -e "$HOME/.$brandCode-early-debug" ]; then
     sudo touch "$daemonDataPath/.$brandCode-early-debug"
+fi
+
+# Remember whether the service was skipped, for upgrades (see autoDetectSystem)
+if [ "$BOOT_MANAGER" = none ]; then
+    sudo mkdir -p "$daemonSettingsPath"
+    sudo touch "$skipServiceMarker"
+else
+    sudo rm -f "$skipServiceMarker"
 fi
 
 case "$BOOT_MANAGER" in
