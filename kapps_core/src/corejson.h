@@ -174,7 +174,10 @@ void from_json(const JsonT &j, nullable_t<T> &v)
 template<class T, class JsonT>
 void to_json(JsonT &j, const ArraySlice<T> &a)
 {
-    JsonT jsonArray{JsonT::array()};
+    // Not 'JsonT jsonArray{JsonT::array()}': brace-initializing a JSON value
+    // from another one picks the initializer_list constructor with current
+    // compilers (CWG 2137), making an array containing an empty array.
+    JsonT jsonArray = JsonT::array();
     for(const auto &element : a)
     {
         JsonT jsonElement;

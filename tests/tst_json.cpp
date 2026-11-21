@@ -21,6 +21,9 @@
 #include <QSignalSpy>
 
 #include <common/src/json.h>
+#include <kapps_core/src/corejson.h>
+#include <nlohmann/json.hpp>
+#include <vector>
 
 #include <QJsonArray>
 #include <QJsonObject>
@@ -59,6 +62,25 @@ class tst_json : public QObject
     Q_OBJECT
 
 private slots:
+    // An ArraySlice serializes as an array of exactly its elements.  (A
+    // brace-initialized array once added an empty array before them with
+    // newer compilers, which showed every single-region country as a group
+    // with an "undefined" region.)
+    void arraySliceToJson()
+    {
+        using kapps::core::ArraySlice;
+        using kapps::core::StringSlice;
+        std::vector<StringSlice> none, one{"a"}, two{"a", "b"};
+
+        nlohmann::json j;
+        to_json(j, ArraySlice<const StringSlice>{none});
+        QCOMPARE(QString::fromStdString(j.dump()), QStringLiteral("[]"));
+        to_json(j, ArraySlice<const StringSlice>{one});
+        QCOMPARE(QString::fromStdString(j.dump()), QStringLiteral(R"(["a"])"));
+        to_json(j, ArraySlice<const StringSlice>{two});
+        QCOMPARE(QString::fromStdString(j.dump()), QStringLiteral(R"(["a","b"])"));
+    }
+
     void castActualTypes()
     {
         const bool boolValue = true;
