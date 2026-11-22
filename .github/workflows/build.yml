@@ -323,9 +323,6 @@ jobs:
     needs: [linux]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
-    env:
-      TMPDIR: ${{ runner.temp }}/e2e
-      KYN_E2E_CACHE: ${{ runner.temp }}/e2e-cache
     steps:
       - uses: actions/checkout@v7
         with:
@@ -351,6 +348,7 @@ jobs:
           path: dist
       - name: Run the end-to-end test
         run: |
+          export TMPDIR="$RUNNER_TEMP/e2e" KYN_E2E_CACHE="$RUNNER_TEMP/e2e-cache"
           mkdir -p "$TMPDIR"
           installer=$(find dist -name 'kyn-linux-[0-9]*.run' | head -1)
           test -n "$installer"
