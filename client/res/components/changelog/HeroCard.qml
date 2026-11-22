@@ -38,19 +38,19 @@ Item {
   readonly property int imageWidth: 312
   readonly property int imageMargin: 30
 
-  property string headlineText: uiTr("Get Your Dedicated IP!")
-  property string bodyText: uiTr("Get your own unique IP without sacrificing any of your privacy or security. Enjoy all the benefits of a fully anonymous dedicated IP:")
+  property string headlineText: uiTr("Welcome to Kyn VPN")
+  property string bodyText: uiTr("Thanks for joining us at launch. Here's what this first release includes:")
   property var checkText: [
-    uiTr("Stop triggering security warnings"),
-    uiTr("Smoother account access"),
-    uiTr("See fewer CAPTCHAs"),
-    uiTr("Protect your IoT devices")
+    uiTr("Fast, modern WireGuard connections"),
+    uiTr("Your DNS requests stay inside the VPN tunnel"),
+    uiTr("An optional kill switch that blocks traffic if the VPN drops"),
+    uiTr("Signed updates, verified before they're installed")
   ]
-  property string ctaText: uiTr("GET YOUR DEDICATED IP")
-  property string heroImageSource: Theme.changelog.dedicatedIpImage
+  property string ctaText: uiTr("VISIT OUR WEBSITE")
+  property string heroImageSource: Theme.changelog.heroImage
   property bool ctaEnabled: true
   function onCtaClicked () {
-    Qt.openUrlExternally(BrandHelper.getBrandParam("getDedicatedIpLink"))
+    Qt.openUrlExternally(BrandHelper.getBrandParam("brandWebsiteLink"))
   }
 
   implicitHeight: {
@@ -158,7 +158,8 @@ Item {
 
   StaticImage {
     id: heroImage
-    label: uiTr("Dedicated IP feature")
+    //: Screen reader annotation for the launch image in the What's New view
+    label: uiTr("Kyn VPN launch")
     anchors.right: parent.right
     anchors.rightMargin: imageMargin
     anchors.top: parent.top

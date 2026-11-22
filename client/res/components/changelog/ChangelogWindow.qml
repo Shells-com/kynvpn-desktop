@@ -44,9 +44,8 @@ DecoratedWindow {
   // SettingsWindow, this window's width is fixed, only the height changes.)
   windowLogicalHeight: 200
 
-  // Default to the actual changelog since we haven't updated What's New in
-  // some time.
-  property int activePage: 1
+  // Open on What's New
+  property int activePage: 0
   readonly property int pageCount: 2
 
   function updateWindowSize() {

@@ -48,27 +48,6 @@ Rectangle {
 
     CallingCard {
       width: parent.width
-      headlineText: uiTr("WireGuard Protocol")
-      bodyText: uiTr("It's a new, more efficient protocol that offers better performance, lower CPU usage, and longer battery life.  [[Try it now]]")
-      onMessageLinkClicked: {
-        wSettings.showPage('protocol')
-        // The Protocol setting uses a PrivacyInput, so it will show a nice
-        // sliding animation if the protocol changes due to this RPC, which
-        // makes it obvious that we applied a change.
-        Daemon.applySettings({"method":"wireguard"})
-      }
-      sourceImage: Theme.changelog.wireguardImage
-      imgDisplayLeftBleed: 43
-      imgDisplayRightBleed: 37
-      imgDisplayTopBleed: 8
-      imgDisplayBottomBleed: 31
-      //: Screen reader annotation for the WireGuard image in the
-      //: What's New view
-      imageAnnotation: uiTr("WireGuard feature")
-    }
-
-    CallingCard {
-      width: parent.width
       headlineText: uiTranslate("AutomationPage", "Connection Automation")
       bodyText: uiTr("Create rules to automatically connect or disconnect the VPN when you join a particular network.  [[Go to Settings]]")
       onMessageLinkClicked: wSettings.showPage('automation')
@@ -101,7 +80,7 @@ Rectangle {
 
       bodyText: uiTranslate(
                   "ChangelogWindow",
-                  "The PIA desktop app comes with a CLI for added functionality. Invoke \"piactl\" and check it out today! You can do things like control PIA, integrate PIA hotkeys, and even automate PIA functionality with scripts, or make custom integrations.")
+                  "The app comes with a CLI, \"kynctl\", so you can control the VPN from a terminal, bind it to hotkeys, or automate it with scripts.")
       sourceImage: Theme.changelog.terminalImage
       //: Screen reader annotation for the command-line interface image in the
       //: What's New view
