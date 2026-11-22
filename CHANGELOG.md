@@ -1,7 +1,8 @@
 # Changelog
-### Next release
+### v1.0.4
 * All: Removed the opt-in connection statistics ("Help Improve") feature entirely. The app has no code left to send usage events
 * All: Removed dedicated IPs
+* All: Logging out now also invalidates the login token on our servers
 * All: Updated "What's new" for the Kyn VPN launch
 
 ### v1.0.3

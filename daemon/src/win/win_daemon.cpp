@@ -28,6 +28,7 @@
 #include "../networkmonitor.h"
 #include "win.h"
 #include "brand.h"
+#include "product.h"
 #include "../../../extras/installer/win/callout_inl.h"
 #include "../../../extras/installer/win/dco_inl.h" // DCO_DEVICE_NAME
 #include "../../../extras/installer/win/util_inl.h" // getSystemTempPath()
