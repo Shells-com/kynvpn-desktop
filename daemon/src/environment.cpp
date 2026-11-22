@@ -102,13 +102,13 @@ void Environment::loadRegionsListPublicKey()
     if(QFile::exists(overrideFilePath))
     {
         QByteArray fileData = readFile(overrideFilePath);
-        // Make sure it's a valid public key, even though we store the raw PEM
-        QSslKey testKey{fileData, QSsl::KeyAlgorithm::Rsa,
-                        QSsl::EncodingFormat::Pem, QSsl::KeyType::PublicKey};
-        if(testKey.isNull())
+        // Only check that it's a PEM public key: QSslKey can't parse Ed25519,
+        // the algorithm the default key uses. verifySignature() rejects
+        // anything it can't load.
+        if(!fileData.contains("-----BEGIN PUBLIC KEY-----"))
         {
             qWarning() << "Override regions list key" << overrideFilePath
-                << "can't be parsed";
+                << "is not a PEM public key";
             emit overrideFailed(QStringLiteral("regions list key"));
             // Proceed to load default
         }

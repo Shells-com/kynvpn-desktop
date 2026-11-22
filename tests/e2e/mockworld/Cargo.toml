@@ -1,0 +1,15 @@
+[package]
+name = "mockworld"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "The whole network a Kyn VPN end-to-end test VM sees: DHCP, DNS, the Kyn API, the IP check, and a WireGuard server."
+
+[dependencies]
+pktkit = { version = "0.1.12", features = ["qemu", "dhcp", "l2adapter", "slirp", "wg"] }
+httpsd = { version = "0.2.1", default-features = false, features = ["tls"] }
+serde_json = "1"
+base64 = "0.22"
+
+[profile.release]
+debug = 1

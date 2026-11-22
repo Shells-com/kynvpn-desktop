@@ -316,9 +316,58 @@ jobs:
           path: out/*/artifacts/
           if-no-files-found: error
 
+  # The Linux client end to end, in an Ubuntu VM against a mock backend
+  # (tests/e2e/README.md). x86_64 only: GitHub's arm64 runners have no KVM.
+  e2e:
+    name: e2e-linux-x86_64
+    needs: [linux]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      TMPDIR: ${{ runner.temp }}/e2e
+      KYN_E2E_CACHE: ${{ runner.temp }}/e2e-cache
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: tests/e2e
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install QEMU
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq --no-install-recommends qemu-system-x86 qemu-utils
+      # The Ubuntu base image with the client's dependencies, built on first use
+      - uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/e2e-cache
+          key: e2e-base-x86_64-${{ hashFiles('tests/e2e/run.sh') }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: kyn-linux-x86_64
+          path: dist
+      - name: Run the end-to-end test
+        run: |
+          mkdir -p "$TMPDIR"
+          installer=$(find dist -name 'kyn-linux-[0-9]*.run' | head -1)
+          test -n "$installer"
+          tests/e2e/run.sh --arch x86_64 --installer "$installer" --keep
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: e2e-linux-x86_64-logs
+          path: |
+            ${{ runner.temp }}/e2e/kynvpn-e2e.*/report.json
+            ${{ runner.temp }}/e2e/kynvpn-e2e.*/*.log
+            ${{ runner.temp }}/e2e/kynvpn-e2e.*/artifacts/
+          if-no-files-found: ignore
+
   release:
     name: Release
-    needs: [linux, macos, windows]
+    needs: [linux, macos, windows, e2e]
     if: github.ref_type == 'tag'
     runs-on: ubuntu-24.04
     # RELEASE_SIGNING_KEY: Ed25519 key signing SHA256SUMS and update.json (the
