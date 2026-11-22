@@ -19,6 +19,7 @@
 #include <common/src/common.h>
 #include <common/src/settings/locations.h>
 #include <common/src/locations.h>
+#include <common/src/settings/daemonaccount.h>
 #include <QtTest>
 
 namespace sample_docs {
@@ -595,6 +596,19 @@ private slots:
         const auto &pAlUpd = updatedLocs.at("al");
         QVERIFY(pAlUpd);
         QCOMPARE(pAlUpd->latency().get(), alLatency);
+    }
+
+    // Account tokens can be hex or JWTs; anything that could break a header or
+    // query parameter is rejected
+    void testValidateToken()
+    {
+        QVERIFY(DaemonAccount::validateToken(QStringLiteral("")));
+        QVERIFY(DaemonAccount::validateToken(QStringLiteral("0123456789abcdefABCDEF")));
+        QVERIFY(DaemonAccount::validateToken(QStringLiteral("eyJhbGciOiJFZERTQSJ9.eyJzdWIiOiJ1c3ItMSJ9.jrv_x0iE7Yq-zDQ")));
+        QVERIFY(!DaemonAccount::validateToken(QStringLiteral("abc def")));
+        QVERIFY(!DaemonAccount::validateToken(QStringLiteral("abc\ndef")));
+        QVERIFY(!DaemonAccount::validateToken(QStringLiteral("abc&pt=def")));
+        QVERIFY(!DaemonAccount::validateToken(QStringLiteral("abc/def+ghi=")));
     }
 
     // The port choices are the union of the regions' OpenVPN ports

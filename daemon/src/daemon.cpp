@@ -1425,19 +1425,16 @@ void Daemon::RPC_logout()
 
     if(!_state.vpnSessionExpired() && !tokenToExpire.isEmpty())
     {
+        // The platform rejects an empty body, so send an empty JSON object.
+        // Any successful response means the token was expired.
         _apiClient.postRetry(*_environment.getApiv2(), QStringLiteral("expire_token"),
-                             QJsonDocument(), ApiClient::tokenAuth(tokenToExpire))
-            ->notify(this, [this](const Error &error, const QJsonDocument &json)
+                             QJsonDocument{QJsonObject{}}, ApiClient::tokenAuth(tokenToExpire))
+            ->notify(this, [](const Error &error, const QJsonDocument &)
         {
-            if(error) {
+            if(error)
                 qWarning () << "Token expire failed with error code: " << error.code();
-            } else {
-                QString status = json[QLatin1String("status")].toString();
-                if (status != QStringLiteral("success"))
-                    qWarning () << "API Token expire: Bad result: " << json;
-                else
-                    qDebug () << "API Token expire: success";
-            }
+            else
+                qDebug () << "API Token expire: success";
         });
     }
 

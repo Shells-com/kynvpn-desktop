@@ -42,6 +42,9 @@ DaemonAccount::DaemonAccount()
 
 bool DaemonAccount::validateToken(const QString& token)
 {
-    static const QRegularExpression validToken(QStringLiteral("^[0-9A-Fa-f]+$"));
+    // Hex tokens, or JWTs (base64url segments separated by dots, as issued
+    // for tests by Network/VPN/Token:test).  Tokens are sent in headers and
+    // query parameters, so nothing else is accepted.
+    static const QRegularExpression validToken(QStringLiteral("^[0-9A-Za-z_.-]+$"));
     return token.isEmpty() || validToken.match(token).hasMatch();
 }
