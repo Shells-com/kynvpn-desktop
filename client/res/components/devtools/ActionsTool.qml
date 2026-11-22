@@ -191,19 +191,7 @@ Item {
           }
           Text {
             anchors.verticalCenter: parent.verticalCenter
-            text: "Refreshes client updates, notification data, dedicated IPs, etc."
-          }
-        }
-        Row {
-          spacing: 5
-          Button {
-            Layout.alignment: Qt.AlignTop|Qt.AlignRight
-            text: "Send events"
-            onClicked: Daemon.sendServiceQualityEvents()
-          }
-          Text {
-            anchors.verticalCenter: parent.verticalCenter
-            text: "Send service quality events early (if events are enabled)"
+            text: "Refreshes client updates, notification data, etc."
           }
         }
 

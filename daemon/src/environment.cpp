@@ -286,13 +286,6 @@ void Environment::loadApiBases()
                 QStringLiteral("API v2"), QStringLiteral("/apiv2/"), {
                     QStringLiteral(BRAND_PLATFORM_REST "Network/VPN:apiV2?resource=/")
                 });
-    // Meta servers proxy API v5 at /api/client/v5/; unlike v2 (/apiv2/), there
-    // is no /apiv5/ route.
-    loadDynamicApiBase(overridePresent, apiOverride, _pApiv5, QStringLiteral("apiv5"),
-                QStringLiteral("API v5"), QStringLiteral("/api/client/v5/"), {
-                    QStringLiteral(BRAND_PLATFORM_REST "Network/VPN:apiV5?resource=/")
-                });
-
     loadDynamicApiBase(overridePresent, apiOverride, _pModernRegionsListApi,
                 QStringLiteral("modern_regions_list_api"),
                 QStringLiteral("modern regions list API"), QStringLiteral("/"), {

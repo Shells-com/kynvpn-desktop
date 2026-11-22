@@ -18,7 +18,6 @@
 
 #pragma once
 #include "regions.h"
-#include "dedicatedip.h"
 #include "manualregion.h"
 #include "region.h"
 #include <kapps_core/stringslice.h>
@@ -108,26 +107,20 @@ typedef struct KARRegionList KARRegionList;
 // In addition to the regions list JSON, provide:
 // - Shadowsocks region list JSON, if the client intends to use Shadowsocks. If
 //   given, the Shadowsocks servers are incorporated into the region list.
-// - Descriptions of the user's Dedicated IPs, which are incorporated as
-//   "DIP regions" (see KARDedicatedIP).  Often there are either 0 or 1 DIP, but
-//   in principle 0 or more can be provided.
 // - Description of any manual regions, if desired (see KARManualRegion)
 KAPPS_REGIONS_EXPORT
 const KARRegionList *KARRegionListCreate(KACStringSlice regionsJson,
                                          KACStringSlice shadowsocksJson,
-                                         const KARDedicatedIP *pDIPs, size_t dipCount,
                                          const KARManualRegion *pManualRegions, size_t manualCount);
 // Build a region list from legacy PIAv6 regions JSON.  As above, remove any
-// attached signature if present.  Dedicated IPs and manual servers can be
-// specified, but note that their listed server groups must correspond to the
-// PIAv6 JSON.
+// attached signature if present.  Manual servers can be specified, but note
+// that their listed server groups must correspond to the PIAv6 JSON.
 //
 // This provides complete data since all the needed data are also present in
 // PIAv6.  (Note that the corresponding Metadata legacy support has caveats.)
 KAPPS_REGIONS_EXPORT
 const KARRegionList *KARRegionListCreatePiav6(KACStringSlice regionsv6Json,
                                               KACStringSlice shadowsocksJson,
-                                              const KARDedicatedIP *pDIPs, size_t dipCount,
                                               const KARManualRegion *pManualRegions, size_t manualCount);
 // Destroy a region list.
 KAPPS_REGIONS_EXPORT

@@ -26,7 +26,6 @@ RegionList::PIAv6_t RegionList::PIAv6{};
 
 RegionList::RegionList(core::StringSlice regionsJson,
                        core::StringSlice shadowsocksJson,
-                       core::ArraySlice<const DedicatedIp> dips,
                        core::ArraySlice<const ManualRegion> manual)
 {
     auto json = nlohmann::json::parse(regionsJson);
@@ -53,7 +52,7 @@ RegionList::RegionList(core::StringSlice regionsJson,
     // "service group name" -> "service group" translation, which requires the
     // service group map.  Read them manually.
     const auto &jsonRegions = json.at("regions");
-    _regionsById.reserve(jsonRegions.size() + dips.size() + manual.size());
+    _regionsById.reserve(jsonRegions.size() + manual.size());
 
     readJsonRegions(jsonRegions, groups, shadowsocksServers);
     StdRegionsById stdRegions;
@@ -61,11 +60,8 @@ RegionList::RegionList(core::StringSlice regionsJson,
     for(const auto &[id, pRegion] : _regionsById)
         stdRegions.insert({id, pRegion.get()});
 
-    // Add Dedicated IP regions.  These need to reference standard regions for
-    // some details like port forwarding, etc., so they are added after the
-    // standard regions.
-    buildDipRegions(dips, groups, stdRegions);
-    // Add manual regions too.
+    // Add manual regions.  These can reference standard regions, so they are
+    // added after the standard regions.
     buildManualRegions(manual, groups, stdRegions);
 
     // Set up _regions now that we've fully built _regionsById
@@ -76,7 +72,6 @@ RegionList::RegionList(core::StringSlice regionsJson,
 
 RegionList::RegionList(PIAv6_t, core::StringSlice regionsJson,
                        core::StringSlice shadowsocksJson,
-                       core::ArraySlice<const DedicatedIp> dips,
                        core::ArraySlice<const ManualRegion> manual)
 {
     auto json = nlohmann::json::parse(regionsJson);
@@ -143,7 +138,7 @@ RegionList::RegionList(PIAv6_t, core::StringSlice regionsJson,
     }
 
     const auto &jsonRegions = json.at("regions");
-    _regionsById.reserve(jsonRegions.size() + dips.size() + manual.size());
+    _regionsById.reserve(jsonRegions.size() + manual.size());
 
     readPiav6JsonRegions(jsonRegions, ncpGroups, pssGroups, shadowsocksServers);
     StdRegionsById stdRegions;
@@ -151,9 +146,8 @@ RegionList::RegionList(PIAv6_t, core::StringSlice regionsJson,
     for(const auto &[id, pRegion] : _regionsById)
         stdRegions.insert({id, pRegion.get()});
 
-    // DIP and manual regions are assumed not to support NCP (use pssGroups).
-    // Manual has a specific override for this; DIP currently does not.
-    buildDipRegions(dips, pssGroups, stdRegions);
+    // Manual regions are assumed not to support NCP (use pssGroups); they have
+    // a specific override for this.
     buildManualRegions(manual, pssGroups, stdRegions);
 
     // Set up _regions now that we've fully built _regionsById
@@ -225,7 +219,7 @@ void RegionList::readJsonRegions(const nlohmann::json &jsonRegions,
                 addShadowsocksServer(id, servers, shadowsocksServers);
 
             auto pRegion = std::make_shared<Region>(id.to_string(), autoRegion, portForward,
-                    geo, std::string{}, std::move(servers));
+                    geo, std::move(servers));
             _regionsById.emplace(pRegion->id(), std::move(pRegion));
         }
         catch(const std::exception &ex)
@@ -388,7 +382,7 @@ void RegionList::readPiav6JsonRegions(const nlohmann::json &jsonRegions,
                 addShadowsocksServer(id, servers, shadowsocksServers);
 
             auto pRegion = std::make_shared<Region>(id.to_string(), autoRegion,
-                    portForward, geo, std::string{}, std::move(servers));
+                    portForward, geo, std::move(servers));
             _regionsById.emplace(pRegion->id(), std::move(pRegion));
         }
         catch(const std::exception &ex)
@@ -554,81 +548,6 @@ auto RegionList::readPiav6JsonRegionServers(const nlohmann::json &jsonRegion,
     return servers;
 }
 
-void RegionList::buildDipRegions(const core::ArraySlice<const DedicatedIp> &dips,
-    const ServiceGroups &groups,
-    const StdRegionsById &stdRegions)
-{
-    for(const auto &dip : dips)
-    {
-        // Find the corresponding region
-        if(_regionsById.count(dip.dipRegionId))
-        {
-            KAPPS_CORE_WARNING() << "Duplicate region ID" << dip.dipRegionId;
-            continue;
-        }
-        auto itCorrespondingRegion = stdRegions.find(dip.correspondingRegionId);
-        if(itCorrespondingRegion == stdRegions.end() ||
-            !itCorrespondingRegion->second)
-        {
-            KAPPS_CORE_WARNING() << "Cannot find corresponding region"
-                << dip.correspondingRegionId << "for DIP region"
-                << dip.dipRegionId;
-            // We can't recover from this since we lack essential display
-            // information for the DIP region.  Ignore this region and continue
-            continue;
-        }
-
-        // Build a Server for the service groups
-        std::vector<std::shared_ptr<const Server>> servers;
-        servers.reserve(dip.serviceGroups.size());
-        for(const auto &serviceGroup : dip.serviceGroups)
-        {
-            // Find the service group
-            auto itServiceGroup = groups.find(serviceGroup);
-            if(itServiceGroup == groups.end() || !itServiceGroup->second)
-            {
-                KAPPS_CORE_WARNING() << "Cannot find service group"
-                    << serviceGroup << "for DIP region"
-                    << dip.dipRegionId;
-                // We can't add a server, we'll still add the region so it shows up
-                // "offline".
-            }
-            else
-            {
-                // Replace the OpenVPN ports with the DIP ports, only for the
-                // OpenVPN services this group already provides
-                const auto &existing = *itServiceGroup->second;
-                std::vector<std::uint16_t> openVpnUdpPorts, openVpnTcpPorts;
-                if(!existing.openVpnUdpPorts().empty())
-                    openVpnUdpPorts = dip.openVpnUdpPorts.to_vector();
-                if(!existing.openVpnTcpPorts().empty())
-                    openVpnTcpPorts = dip.openVpnTcpPorts.to_vector();
-                auto pDipGroup = std::make_shared<ServiceGroup>(
-                    std::move(openVpnUdpPorts), existing.openVpnUdpNcp(),
-                    std::move(openVpnTcpPorts), existing.openVpnTcpNcp(),
-                    existing.wireGuardPorts().to_vector(),
-                    existing.wireGuardAmneziaPorts().to_vector(),
-                    existing.ikev2(),
-                    existing.shadowsocksPorts().to_vector(), existing.shadowsocksKey().to_string(),
-                    existing.shadowsocksCipher().to_string(),
-                    existing.metaPorts().to_vector());
-                servers.push_back(std::make_shared<Server>(dip.address,
-                    dip.commonName.to_string(), dip.fqdn.to_string(),
-                    std::move(pDipGroup)));
-            }
-        }
-
-        const Region &correspondingRegion{*itCorrespondingRegion->second};
-        auto pRegion = std::make_shared<Region>(dip.dipRegionId.to_string(),
-                                     false,  // DIP regions are not selected automatically
-                                     correspondingRegion.portForward(),
-                                     correspondingRegion.geoLocated(),
-                                     dip.address,
-                                     std::move(servers));
-        _regionsById.emplace(pRegion->id(), std::move(pRegion));
-    }
-}
-
 void RegionList::buildManualRegions(const core::ArraySlice<const ManualRegion> &manualRegions,
     const ServiceGroups &groups,
     const StdRegionsById &stdRegions)
@@ -742,7 +661,6 @@ void RegionList::buildManualRegions(const core::ArraySlice<const ManualRegion> &
                                      false,  // Manual regions are not selected automatically
                                      true,   // Always has port forwarding
                                      false,  // Never geo-located
-                                     std::string{},     // Not DIP
                                      std::move(servers));
         _regionsById.emplace(pRegion->id(), std::move(pRegion));
     }

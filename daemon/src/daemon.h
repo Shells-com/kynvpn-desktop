@@ -35,7 +35,6 @@
 #include "portforwarder.h"
 #include "socksserverthread.h"
 #include "updatedownloader.h"
-#include "servicequality.h"
 #include "vpn.h"
 #include "apiclient.h"
 #include "automation.h"
@@ -249,20 +248,6 @@ protected:
     // Settings
     void RPC_applySettings(const QJsonObject& settings, bool reconnectIfNeeded = false);
     void RPC_resetSettings();
-    // Dedicated IPs aren't actually stored in settings (due to the token being
-    // treated as a password), but they're used by the client in mostly the same
-    // way.
-    // Add a dedicated IP by specifying a dedicated IP token.  The request
-    // succeeds if the token is valid and not expired (and the API can be
-    // reached to confirm this).
-    Async<void> RPC_addDedicatedIp(const QString &token);
-    // Remove a dedicated IP by specifying the generated region ID for the DIP
-    // region (since the client can't see dedicated IP tokens).
-    void RPC_removeDedicatedIp(const QString &dipRegionId);
-    // If one or more dedicated IPs have changed IP address (triggering a client
-    // notification), clear that notification by dismissing the change.  This
-    // resets AccountDedicatedIp::lastIpChange() for all dedicated IPs.
-    void RPC_dismissDedicatedIpChange();
 
     // Connection
 
@@ -293,11 +278,9 @@ protected:
 
     // Refresh server metadata (asynchronously)
     // Refreshes most information that's normally loaded periodically, such as
-    // dedicated IPs, update information, client notifications, etc.  Used for
+    // account and update information.  Used for
     // testing to avoid waiting on long timers.
     void RPC_refreshMetadata();
-    // Send service quality events early (if enabled, used by a dev tool)
-    void RPC_sendServiceQualityEvents();
 
     // Client activation
     void RPC_notifyClientActivate();
@@ -437,12 +420,6 @@ private:
     void onNetworksChanged(const std::vector<NetworkConnection> &networks);
 
     void refreshAccountInfo();
-    // Update the DIP OpenVPN ports in the state from the DIP port settings and
-    // the DIP port choices
-    void updateDedicatedIpPorts();
-    void applyRefreshedDedicatedIp(const QJsonObject &tokenData, int traceIdx,
-                                   std::vector<AccountDedicatedIp> &dedicatedIps);
-    void refreshDedicatedIps();
     void reapplyFirewallRules();
 
     // Handle system sleep by:
@@ -481,9 +458,6 @@ private:
     // AmneziaWG servers, or it is off and the location has only those.  Such a
     // connection can never succeed, so it isn't attempted.
     bool obfuscationMismatch() const;
-    // Whether the next location is a dedicated IP that has no ports for the
-    // OpenVPN protocol in use (see dedicatedIpLacksOpenVpn())
-    bool dedicatedIpOpenVpnMismatch() const;
     // Rebuild the chosen/best/next location selections (without rebuilding the
     // entire list).  Used when data changes that affect the location
     // selections.
@@ -526,8 +500,8 @@ private:
     void onAutomationRuleTriggered(const nullable_t<AutomationRule> &currentRule,
                                    Automation::Trigger trigger);
 
-    Error connectVPN(ServiceQuality::ConnectionSource source);
-    void disconnectVPN(ServiceQuality::ConnectionSource source);
+    Error connectVPN();
+    void disconnectVPN();
 protected:
     bool _started, _stopping;
 
@@ -582,8 +556,6 @@ protected:
     SnoozeTimer _snoozeTimer;
     std::unique_ptr<NetworkMonitor> _pNetworkMonitor;
     Automation _automation;
-    // ServiceQuality is created after the data/settings are loaded
-    nullable_t<ServiceQuality> _pServiceQuality;
 
     QSet<QString> _dataChanges;
     QSet<QString> _accountChanges;
@@ -594,7 +566,6 @@ protected:
     QTimer _serializationTimer;
 
     QTimer _accountRefreshTimer;
-    QTimer _dedicatedIpRefreshTimer;
 
     QTimer _checkForAppMessagesTimer;
     QTimer _memTraceTimer;

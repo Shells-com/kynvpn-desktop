@@ -72,33 +72,11 @@ namespace
     const KARRegionDisplay *toApi(const RegionDisplay *p) {return static_cast<const KARRegionDisplay *>(p);}
     const KARMetadata *toApi(const Metadata *p) {return static_cast<const KARMetadata *>(p);}
 
-    // KARDedicatedIP and KARManualRegion both contain KARStringSliceArrays;
-    // to interpret these we allocate a vector<core::StringSlice> to populate
-    // the core::ArraySlice<const core::StringSlice>.  Those have to be held
-    // somewhere since the DedicatedIps / ManualRegions are non-owning.
+    // KARManualRegion contains KARStringSliceArrays; to interpret these we
+    // allocate a vector<core::StringSlice> to populate the
+    // core::ArraySlice<const core::StringSlice>.  Those have to be held
+    // somewhere since the ManualRegions are non-owning.
     using ServiceGroupsStorage = std::vector<std::vector<kapps::core::StringSlice>>;
-    std::vector<DedicatedIp> fromApi(const KARDedicatedIP *pDips, size_t dipCount,
-        ServiceGroupsStorage &serviceGroupsStorage)
-    {
-        verify(pDips, dipCount);
-
-        std::vector<DedicatedIp> dips;
-        dips.reserve(dipCount);
-        while(dipCount)
-        {
-            serviceGroupsStorage.push_back(fromApi(pDips->serviceGroups));
-            dips.push_back({fromApi(pDips->dipRegionId), fromApi(pDips->address),
-                            fromApi(pDips->commonName), fromApi(pDips->fqdn),
-                            serviceGroupsStorage.back(),
-                            fromApi(pDips->correspondingRegionId),
-                            fromApi(pDips->openVpnUdpPorts),
-                            fromApi(pDips->openVpnTcpPorts)});
-            ++pDips;
-            --dipCount;
-        }
-
-        return dips;
-    }
     std::vector<ManualRegion> fromApi(const KARManualRegion *pManualRegions, size_t manualCount,
         ServiceGroupsStorage &serviceGroupsStorage)
     {
@@ -247,14 +225,6 @@ extern "C"
     {
         return guard(pRegion, [&]{return pRegion->offline();});
     }
-    bool KARRegionIsDedicatedIp(const KARRegion *pRegion)
-    {
-        return guard(pRegion, [&]{return pRegion->isDedicatedIp();});
-    }
-    KACIPv4Address KARRegionDedicatedIpAddress(const KARRegion *pRegion)
-    {
-        return guard(pRegion, [&]{return toApi(pRegion->dipAddress());});
-    }
     bool KARRegionHasService(const KARRegion *pRegion, KARService service)
     {
         return guard(pRegion, [&]{return pRegion->hasService(fromApi(service));});
@@ -271,34 +241,28 @@ extern "C"
     // KARRegionList
     const KARRegionList *KARRegionListCreate(KACStringSlice regionsJson,
                                              KACStringSlice shadowsocksJson,
-                                             const KARDedicatedIP *pDIPs,
-                                             size_t dipCount,
                                              const KARManualRegion *pManualRegions,
                                              size_t manualCount)
     {
         return guard([&]
         {
             ServiceGroupsStorage serviceGroupsStorage;
-            auto dips = fromApi(pDIPs, dipCount, serviceGroupsStorage);
             auto manual = fromApi(pManualRegions, manualCount, serviceGroupsStorage);
             return toApi(new RegionList{fromApi(regionsJson),
-                fromApi(shadowsocksJson), dips, manual});
+                fromApi(shadowsocksJson), manual});
         });
     }
     const KARRegionList *KARRegionListCreatePiav6(KACStringSlice regionsv6Json,
                                                   KACStringSlice shadowsocksJson,
-                                                  const KARDedicatedIP *pDIPs,
-                                                  size_t dipCount,
                                                   const KARManualRegion *pManualRegions,
                                                   size_t manualCount)
     {
         return guard([&]
         {
             ServiceGroupsStorage serviceGroupsStorage;
-            auto dips = fromApi(pDIPs, dipCount, serviceGroupsStorage);
             auto manual = fromApi(pManualRegions, manualCount, serviceGroupsStorage);
             return toApi(new RegionList{RegionList::PIAv6, fromApi(regionsv6Json),
-                fromApi(shadowsocksJson), dips, manual});
+                fromApi(shadowsocksJson), manual});
         });
     }
     void KARRegionListDestroy(const KARRegionList *pRegionList)
@@ -414,32 +378,26 @@ extern "C"
 
     // KARMetadata
     const KARMetadata *KARMetadataCreate(KACStringSlice metadataJson,
-                                         const KARDedicatedIP *pDIPs,
-                                         size_t dipCount,
                                          const KARManualRegion *pManualRegions,
                                          size_t manualCount)
     {
         return guard([&]
         {
             ServiceGroupsStorage serviceGroupsStorage;
-            auto dips = fromApi(pDIPs, dipCount, serviceGroupsStorage);
             auto manual = fromApi(pManualRegions, manualCount, serviceGroupsStorage);
-            return toApi(new Metadata{fromApi(metadataJson), dips, manual});
+            return toApi(new Metadata{fromApi(metadataJson), manual});
         });
     }
     const KARMetadata *KARMetadataCreatePiav6v2(KACStringSlice regionsv6Json,
                                                 KACStringSlice metadatav2Json,
-                                                const KARDedicatedIP *pDIPs,
-                                                size_t dipCount,
                                                 const KARManualRegion *pManualRegions,
                                                 size_t manualCount)
     {
         return guard([&]
         {
             ServiceGroupsStorage serviceGroupsStorage;
-            auto dips = fromApi(pDIPs, dipCount, serviceGroupsStorage);
             auto manual = fromApi(pManualRegions, manualCount, serviceGroupsStorage);
-            return toApi(new Metadata{fromApi(regionsv6Json), fromApi(metadatav2Json), dips, manual});
+            return toApi(new Metadata{fromApi(regionsv6Json), fromApi(metadatav2Json), manual});
         });
     }
     void KARMetadataDestroy(const KARMetadata *pMetadata)

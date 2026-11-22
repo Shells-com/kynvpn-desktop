@@ -101,7 +101,6 @@ struct serializer<Location>
             {"geoLocated", l.geoLocated()},
             {"autoSafe", l.autoSafe()},
             {"latency", l.latency()},
-            {"dedicatedIp", l.dedicatedIp()},
             {"offline", l.offline()},
             {"hasShadowsocks", l.hasShadowsocks()},
             {"hasObfuscatedWireGuard", l.hasObfuscatedWireGuard()},

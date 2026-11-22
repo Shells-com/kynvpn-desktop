@@ -433,16 +433,7 @@ Item {
     Action {
       text: uiTr("Logout")
       enabled: Daemon.account.loggedIn
-      onTriggered: {
-        if (Daemon.state.dedicatedIpLocations.length == 0) {
-          Daemon.logout();
-        }
-        else {
-          wSettings.showSettings();
-          ClientNotifications.showAccountPage();
-          ClientNotifications.requestLogout();
-        }
-      }
+      onTriggered: Daemon.logout()
     }
     Action {
       text: uiTr("Quit")

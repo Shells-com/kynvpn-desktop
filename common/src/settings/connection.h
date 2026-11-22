@@ -158,8 +158,7 @@ public:
 // An IP and CN must be specified for the region to be shown.  Service groups
 // and corresponding region ID are optional.
 //
-// This is similar to the way Dedicated IP servers are integrated into the
-// regions model, although manual servers use regular token auth (not DIP auth).
+// Manual servers use regular token auth.
 class COMMON_EXPORT ManualServer : public NativeJsonObject
 {
     Q_OBJECT

@@ -1232,26 +1232,15 @@ void WireguardMethod::run(const ConnectionConfig &connectingConfig,
         ? QStringLiteral("add-awg-key?pubkey=")
         : QStringLiteral("addKey?pubkey=");
     resource += QString::fromLatin1(QUrl::toPercentEncoding(clientKeypair.publicKeyStr()));
-    QByteArray authHeader;
-    // For normal regions, WireGuard only supports token auth; we get vpnToken().
-    // For dedicated IP regions, we get credentials in vpnUsername() / vpnPassword().
-    if(connectingConfig.vpnToken().isEmpty())
-    {
-        // Credential auth, use Basic authentication header
-        authHeader = ApiClient::passwordAuth(connectingConfig.vpnUsername(),
-                                             connectingConfig.vpnPassword());
-    }
-    else
-    {
-        // Token auth, pass in query parameter
-        resource += QStringLiteral("&pt=");
-        resource += QString::fromLatin1(QUrl::toPercentEncoding(connectingConfig.vpnToken()));
-    }
+    // WireGuard only supports token auth, passed in a query parameter
+    // (ConnectionConfig uses OpenVPN when there is no token).
+    resource += QStringLiteral("&pt=");
+    resource += QString::fromLatin1(QUrl::toPercentEncoding(connectingConfig.vpnToken()));
     // Don't do DNS resolution while connecting - specify the IP address in the
     // request, and use the host name to verify the certificate.
     FixedApiBase hostAuthBase{authHost, g_daemon->environment().getVpnServerCA(), certCommonName};
 
-    _pAuthRequest = g_daemon->apiClient().getRetry(hostAuthBase, resource, authHeader)
+    _pAuthRequest = g_daemon->apiClient().getRetry(hostAuthBase, resource, {})
         ->then(this, [this, clientKeypair=std::move(clientKeypair), useAmnezia](const QJsonDocument &result)
             {
                 handleAuthResult(clientKeypair, result, useAmnezia);

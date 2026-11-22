@@ -159,7 +159,6 @@ public:
             autoSafe() == other.autoSafe() &&
             latency() == other.latency() &&
             servers() == other.servers() &&
-            dedicatedIp() == other.dedicatedIp() &&
             offline() == other.offline() &&
             hasShadowsocks() == other.hasShadowsocks();
     }
@@ -202,21 +201,6 @@ public:
     // both services, though.
     kapps::core::ArraySlice<const Server> servers() const {return _servers;}
 
-    // For a dedicated IP region, the dedicated IP address is provided.  This is
-    // empty for normal regions.
-    //
-    // This is useful in UI to display the proper information about the
-    // dedicated IP server.  The IP/CN will also appear in one or more Server
-    // objects, but other types of Servers can appear too (like meta servers
-    // taken from a corresponding region).
-    //
-    // Dedicated IP regions are stored alongside regular regions in
-    // DaemonState::availableLocations (or in general in LocationsById maps),
-    // but are not included in DaemonState::groupedLocations (as that is used
-    // for UI display, and dedicated IP regions are displayed differently; they
-    // are provided in sort order in in DaemonState::dedicatedIpLocations).
-    QString dedicatedIp() const;
-
     // Some regions might be marked offline in the servers list
     // This indicates the region should not be used and should be designated
     // as unavailable in the UI
@@ -246,9 +230,6 @@ public:
     // Check if a given service is available in this location (whether any
     // server has the service)
     bool hasService(Service service) const;
-
-    // Check whether this is a dedicated IP location.
-    bool isDedicatedIp() const {return _pImpl->isDedicatedIp();}
 
     // Get any random server in the location suitable for measuring latency with
     // ICMP pings (for the modern infrastructure).

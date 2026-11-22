@@ -12,7 +12,6 @@ module PiaUnitTest
         'connectionconfig',
         'core_util',
         'daemonsettings',
-        'dedicatedip',
         'exec',
         'ipaddress',
         'json',

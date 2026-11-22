@@ -99,8 +99,6 @@ Rectangle {
   //
   // The 'auto' row is treated as country='auto', location='auto'.
   //
-  // Dedicated IP rows are treated as country='dip', location='<id>'.
-  //
   // Any invalid row choice behaves as if no row is highlighted (including
   // cases like:
   // - country='bogus'
@@ -203,32 +201,12 @@ Rectangle {
           onClicked: regionListView.regionSelected('auto')
           onFocusCell: mouseFocusCell({country: 'auto', location: 'auto'}, keyColumn)
         }
-        Repeater {
-          id: dedicatedIpsRepeater
-          model: displayDedicatedIpsArray
-          delegate: DedicatedIpRegion {
-            Layout.fillWidth: true
-            region: modelData
-            serviceLocations: regionListView.serviceLocations
-            portForwardEnabled: regionListView.portForwardEnabled
-            obfuscationMode: regionListView.obfuscationMode
-            canFavorite: regionListView.canFavorite
-            highlightColumn: {
-              if(keyboardRow.country === "dip" && keyboardRow.location === region.id) {
-                return regionListView.highlightColumn
-              }
-              return -1
-            }
-            onClicked: regionListView.regionSelected(modelData.id)
-            onFocusCell: mouseFocusCell({country: "dip", location: region.id}, keyColumn)
-          }
-        }
-        // Separator between the "auto" + dedicated regions and the normal
-        // regions.  Show if any region above the separator would be shown.
+        // Separator between the "auto" region and the normal regions.  Show
+        // if the "auto" region would be shown.
         Rectangle {
           Layout.fillWidth: true
           height: 3
-          visible: regionAuto.show || displayDedicatedIpsArray.length > 0
+          visible: regionAuto.show
           color: Theme.regions.itemSeparatorColor
         }
         Repeater {
@@ -439,31 +417,6 @@ Rectangle {
     return value.toLowerCase().indexOf(searchTerm.toLowerCase()) >= 0
   }
 
-  // Filter the 'dedicatedIpLocations' array from DaemonState, which is an array
-  // of Locations representing dedicated IP regions.
-  // These are not grouped, so they're just filtered by the region names.
-  function filterDedicatedIps() {
-    var dedicatedIps = Daemon.state.dedicatedIpLocations
-
-    if(!searchTerm && !regionFilter)
-      return dedicatedIps
-
-    var filteredDedicatedIps = dedicatedIps
-
-    // Filter with the region filter if there is one
-    if(regionFilter)
-      filteredDedicatedIps = filteredDedicatedIps.filter(regionFilter)
-
-    // Filter by the search term if present
-    if(searchTerm) {
-      filteredDedicatedIps = filteredDedicatedIps.filter(function(dip) {
-        return matchesSearchTerm(Client.getRegionAutoName(dip.id))
-      })
-    }
-
-    return filteredDedicatedIps
-  }
-
   // Filter the 'countries' object from DaemonState.groupedLocations,
   // which is an array of CountryLocations (which has a 'locations' property,
   // which is an array of locations).
@@ -531,18 +484,8 @@ Rectangle {
   function sortLocations(locations) {
     var sortedLocations = locations.slice()
     sortedLocations.sort(function(first, second) {
-      var nameComp = localeCompareRegions(Client.getRegionAutoName(first.id).toLowerCase(),
-                            Client.getRegionAutoName(second.id).toLowerCase())
-      if(nameComp !== 0)
-        return nameComp
-      // For dedicated IP regions, the names could be exactly the same if the
-      // user has more than one dedicated IP.  Sort by IP next.  This is a
-      // lexical sort - a numeric sort by IP might be nice, but it really
-      // doesn't make that much difference, we just need a consistent order.
-      //
-      // If this somehow happens for regions that aren't dedicated IP regions,
-      // this won't do anything (both will be empty strings).
-      return localeCompareRegions(first.dedicatedIp, second.dedicatedIp)
+      return localeCompareRegions(Client.getRegionAutoName(first.id).toLowerCase(),
+                                  Client.getRegionAutoName(second.id).toLowerCase())
     })
     return sortedLocations
   }
@@ -601,17 +544,6 @@ Rectangle {
     return result
   }
 
-  property var displayDedicatedIpsArray: {
-    // Get the filtered dedicated IP locations
-    var dedicatedIps = filterDedicatedIps()
-
-    // If sorting by name, re-sort the locations by name
-    if(sortKey.currentValue === "name")
-      dedicatedIps = sortLocations(dedicatedIps)
-
-    return dedicatedIps
-  }
-
   // The array of country groups and single regions used as the model for the
   // regions repeater.
   //
@@ -663,7 +595,6 @@ Rectangle {
     // This calculation depends on regionRepeater.children - itemAt() does not
     // add this dependency.
     var childrenDependency = regionsRepeater.children
-    var dipDependency = dedicatedIpsRepeater.children
 
     var table = []
 
@@ -683,18 +614,6 @@ Rectangle {
     // is rebuilt.
 
     var i;
-    for(i=0; i<dedicatedIpsRepeater.count; ++i) {
-      var dipItem = dedicatedIpsRepeater.itemAt(i)
-      if(!dipItem)
-        continue
-
-      // DIPs are all single locations
-      table.push({country: "dip", location: dipItem.region.id, level: 0,
-                  expanded: false, buried: false,
-                  display: Client.getRegionAutoName(dipItem.region.id),
-                  regionItem: dipItem})
-    }
-
     for(i=0; i<regionsRepeater.count; ++i) {
       var regionItem = regionsRepeater.itemAt(i)
       if(!regionItem)
@@ -748,8 +667,7 @@ Rectangle {
   property NativeAcc.TableColumn detailColumn: NativeAcc.TableColumn {
     //: Screen reader annotation for the column in the region list that displays
     //: additional details about the region, when present.  This includes
-    //: the IP address for "dedicated IP" regions, and the current nearest
-    //: region for the "auto" row.
+    //: the current nearest region for the "auto" row.
     name: uiTr("Detail")
     item: regionListView
   }

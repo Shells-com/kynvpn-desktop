@@ -110,15 +110,6 @@ Location::Location(std::shared_ptr<const kapps::regions::Region> pImpl,
     }
 }
 
-QString Location::dedicatedIp() const
-{
-    // The null address is represented as an empty string; indicates this is not
-    // a DIP region
-    if(_pImpl->dipAddress() == kapps::core::Ipv4Address{})
-        return {};
-    return qs::toQString(_pImpl->dipAddress().toString());
-}
-
 template<class PredicateFuncT>
 std::size_t Location::countServersFor(const PredicateFuncT &predicate) const
 {

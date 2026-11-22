@@ -141,32 +141,24 @@ KACIPv4Address apiIpv4(std::uint8_t a, std::uint8_t b, std::uint8_t c, std::uint
     return addr;
 }
 
-const class DipManualRegions
+const class ManualRegions
 {
 public:
-    DipManualRegions()
+    ManualRegions()
     {
         _manual.push_back({apiSlice("manual"), apiIpv4(138, 199, 10, 64),
             apiSlice("newyork420"), apiSlice(""),
             {_manualServiceGroups.data(), _manualServiceGroups.size()},
             apiSlice("us_chicago"), false, KACPortArray{}, KACPortArray{}});
-
-        _dips.push_back({apiSlice("dip-abcd01234"), apiIpv4(2, 3, 4, 5),
-            apiSlice("chicago400"), apiSlice(""),
-            {_dipServiceGroups.data(), _dipServiceGroups.size()},
-            apiSlice("us_chicago"), KACPortArray{}, KACPortArray{}});
     }
 
 public:
     const std::vector<KARManualRegion> &manual() const {return _manual;}
-    const std::vector<KARDedicatedIP> &dips() const {return _dips;}
 
 private:
     std::vector<KARManualRegion> _manual;
     std::vector<KACStringSlice> _manualServiceGroups{apiSlice("traffic1")};
-    std::vector<KARDedicatedIP> _dips;
-    std::vector<KACStringSlice> _dipServiceGroups{apiSlice("traffic1")};
-} dipManualRegions;
+} manualRegions;
 
 void testRegionList()
 {
@@ -239,8 +231,7 @@ void testRegionList()
 
     const KARRegionList *pRgnList = KARRegionListCreate(
         apiSlice(regionsJson), {},
-        dipManualRegions.dips().data(), dipManualRegions.dips().size(),
-        dipManualRegions.manual().data(), dipManualRegions.manual().size());
+        manualRegions.manual().data(), manualRegions.manual().size());
 
     auto pubdns = KARRegionListPublicDnsServers(pRgnList);
     std::cout << pubdns.size << " public DNS servers" << std::endl;
@@ -262,8 +253,6 @@ void testRegionList()
         std::cout << "  port fwd:  " << KARRegionPortForward(pRgn) << std::endl;
         std::cout << "  geo loc.:  " << KARRegionGeoLocated(pRgn) << std::endl;
         std::cout << "  offline:   " << KARRegionOffline(pRgn) << std::endl;
-        std::cout << "  ded. ip:   " << KARRegionIsDedicatedIp(pRgn) << std::endl;
-        std::cout << "  dip addr:  " << KARRegionDedicatedIpAddress(pRgn) << std::endl;
         std::cout << "  has ovudp: " << KARRegionHasService(pRgn, KARServiceOpenVpnUdp) << std::endl;
         std::cout << "  has ovtcp: " << KARRegionHasService(pRgn, KARServiceOpenVpnTcp) << std::endl;
         std::cout << "  has ikev2: " << KARRegionHasService(pRgn, KARServiceIkev2) << std::endl;
@@ -411,8 +400,7 @@ void testMetadata()
     )";
     const KARMetadata *pMetadata = KARMetadataCreate(
         {metadataJson, std::strlen(metadataJson)},
-        dipManualRegions.dips().data(), dipManualRegions.dips().size(),
-        dipManualRegions.manual().data(), dipManualRegions.manual().size());
+        manualRegions.manual().data(), manualRegions.manual().size());
 
     auto dynGroups = KARMetadataDynamicRoles(pMetadata);
     std::cout << dynGroups.size << " dyn. groups" << std::endl;

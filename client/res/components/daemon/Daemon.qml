@@ -105,15 +105,6 @@ QtObject {
   function resetSettings(settings) {
     call("resetSettings", arguments);
   }
-  function addDedicatedIp(token) {
-    call("addDedicatedIp", arguments);
-  }
-  function removeDedicatedIp(id) {
-    call("removeDedicatedIp", arguments);
-  }
-  function dismissDedicatedIpChange() {
-    call("dismissDedicatedIpChange", arguments);
-  }
   function connectVPN() {
     call("connectVPN", arguments);
   }
@@ -140,9 +131,6 @@ QtObject {
   }
   function refreshMetadata() {
     call("refreshMetadata", arguments)
-  }
-  function sendServiceQualityEvents() {
-    call("sendServiceQualityEvents", arguments)
   }
   function emailLogin(email) {
     call("emailLogin", arguments);

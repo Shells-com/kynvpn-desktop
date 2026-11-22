@@ -30,8 +30,8 @@ extern "C" {
 // This is generally used for development to test specific servers.
 typedef struct KARManualRegion
 {
-    // The client's artifical "region ID" for the manual region.  Like DIPs,
-    // this must not collide with a real region.  If the client only provides
+    // The client's artifical "region ID" for the manual region.  This
+    // must not collide with a real region.  If the client only provides
     // one manual region, it can be a fixed string like "manual".  For more than
     // one, it can have a random identifier, or a sequential counter, etc.
     KACStringSlice manualRegionId;
@@ -55,7 +55,7 @@ typedef struct KARManualRegion
     // this if the user does not specify one using some standard service group
     // from the brand's region list.
     KACStringSliceArray serviceGroups;
-    // The region ID for the corresponding region.  Unlike DIPs, this is
+    // The region ID for the corresponding region.  This is
     // optional for manual regions.  Manual regions get a fixed
     // name/flag/geo/etc.; this is only used for auxiliary services like 'meta'.
     // If not specified, the region does not offer the 'meta' service.

@@ -90,12 +90,6 @@ public:
     JsonField(bool, enableMACE, false) // Enable MACE Ad tracker
     JsonField(uint, remotePortUDP, 0) // 0 == auto
     JsonField(uint, remotePortTCP, 0) // 0 == auto
-    // Remote ports used for OpenVPN connections to a dedicated IP.  These are
-    // separate from remotePortUDP/TCP because DIP over OpenVPN targets
-    // DIP-specific ports.  0, or a port the DIP doesn't offer, uses the DIP's
-    // first port.
-    JsonField(uint, dipRemotePortUDP, 0)
-    JsonField(uint, dipRemotePortTCP, 0)
     JsonField(int, mtu, -1) // 0 == unspecified, large; -1 == Path MTU detection
     JsonField(QString, cipher, QStringLiteral("AES-128-GCM"), { "AES-128-GCM", "AES-256-GCM" })
     // On Windows, the driver and configuration method to use to configure the
@@ -168,12 +162,6 @@ public:
     JsonField(QString, betaUpdateChannel,defaultReleaseChannelBeta)
     // Whether the user wants beta updates.
     JsonField(bool, offerBetaUpdates, false)
-
-    // Store the version where the user last opted in for service quality
-    // events. Storing the version instead of a boolean field enables
-    // the option to conditionally include or remove metrics depending on
-    // the version.
-    JsonField(QString, serviceQualityAcceptanceVersion, "")
 
     // Persists the split tunnel activation-failed banner across daemon restarts.
     // Cleared when the user dismisses the notification or successfully re-enables split tunnel.

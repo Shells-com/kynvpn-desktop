@@ -393,7 +393,7 @@ class tst_nearestlocations : public QObject
     auto buildRegionsFromJson(const QJsonObject &locationsJson)
     {
         return buildModernLocations(latencies, locationsJson,
-            samples::emptyShadowsocks, samples::metadata, {}, {}).first;
+            samples::emptyShadowsocks, samples::metadata, {}).first;
     }
 
     void buildRegions()

@@ -332,36 +332,6 @@ Item {
     }
   }
 
-  // OpenVPN to a dedicated IP needs the DIP ports, so the selected DIP can't be
-  // connected to when it has none for the OpenVPN protocol in use.  Not
-  // dismissible, like obfuscationMismatch - the connection can't be
-  // established until the user changes the protocol or the location.
-  NotificationStatus {
-    id: dedicatedIpNoOpenVpn
-    title: errorHeaderTitle
-    //: Shown when the selected Dedicated IP has no OpenVPN ports for the
-    //: connection type in use, so it can't be connected to with OpenVPN.
-    message: uiTr("OpenVPN is not available for this Dedicated IP.")
-    tipText: uiTr("Switch to WireGuard on the Protocols page, or choose another location.")
-    severity: severities.error
-    dismissible: false
-    // Only shown while disconnected, like obfuscationMismatch.  The DIP port is
-    // 0 when the DIP has no ports for that protocol (only one DIP can be added,
-    // so the DIP port state is the selected DIP's).  The Shadowsocks proxy
-    // forces TCP.
-    active: {
-      let nextLocation = Daemon.state.vpnLocations.nextLocation
-      if(!nextLocation || !nextLocation.dedicatedIp ||
-         Daemon.settings.method !== "openvpn" ||
-         Daemon.state.connectionState !== "Disconnected")
-        return false
-      let useTcp = Daemon.settings.protocol === "tcp" ||
-        (Daemon.settings.proxyEnabled && Daemon.settings.proxyType === "shadowsocks")
-      return (useTcp ? Daemon.state.dedicatedIpOpenvpnTcpPort :
-                       Daemon.state.dedicatedIpOpenvpnUdpPort) === 0
-    }
-  }
-
   // Notification for the OpenVPN "authorization failure" error.
   // Although this OpenVPN error has a very specific meaning, for PIA this does
   // not mean that the user's credentials are incorrect.  For example, if the
@@ -582,51 +552,6 @@ Item {
     active: (Daemon.account.loggedIn && Daemon.account.expireAlert && !Daemon.account.recurring && Daemon.account.renewURL) && BrandHelper.brandCode === 'pia'
   }
 
-  TimestampNotificationStatus {
-    id: dedicatedIpExpiring
-    message: {
-      let days = Daemon.state.dedicatedIpDaysRemaining
-      if(days >= 2) {
-        //: Message displayed when a purchased dedicated IP will expire soon.
-        //: %1 is at least 2; there are specific messages for 1 day or 0 days
-        //: remaining.
-        return uiTr("Your dedicated IP will expire in %1 days.").arg(days)
-      }
-      else if(days === 1) {
-        //: Message displayed when a purchased dedicated IP will expire in 1 day.
-        //: (Specifically, in 12-36 hours, since the time remaining is rounded
-        //: to the nearest day.)
-        return uiTr("Your dedicated IP will expire in 1 day.")
-      }
-      else {
-        //: Message displayed when a purchased dedicated IP will expire in less
-        //: than 12 hours.
-        return uiTr("Your dedicated IP will expire today.")
-      }
-    }
-    severity: severities.info
-    links: [{
-      text: uiTr("Get a new one"),
-      clicked: function() { Qt.openUrlExternally(BrandHelper.getBrandParam("getDedicatedIpLink")) }
-    }]
-    dismissible: false
-    timestampValue: Daemon.state.dedicatedIpExpiring
-  }
-
-  // Although the "Dedicated IP Changed" notification is expressed as a
-  // timestamp and can be dismissed, this dismiss action in this case sends an
-  // RPC to the daemon since the state behind the notification is persisted.
-  NotificationStatus {
-    id: dedicatedIpChanged
-    message: uiTr("Your dedicated IP was updated.")
-    severity: severities.info
-    dismissible: true
-    active: Daemon.state.dedicatedIpChanged > 0
-    function dismiss() {
-      Daemon.dismissDedicatedIpChange()
-    }
-  }
-
   NotificationStatus {
     id: accountTokenNotAvailable
     title: ''
@@ -769,7 +694,6 @@ Item {
     splitTunnelReboot,
     vpnMissingIptables,
     obfuscationMismatch,
-    dedicatedIpNoOpenVpn,
     authFailure,
     dnsConfigFailed,
     hnsdFailing,
@@ -787,8 +711,6 @@ Item {
     alternateTransport,
     vpnSessionExpired,
     accountExpiring,
-    dedicatedIpExpiring,
-    dedicatedIpChanged,
     accountTokenNotAvailable,
     changelogAvailable,
     invalidClientExit,
@@ -855,10 +777,6 @@ Item {
   signal showRegions()
   // Show Login page
   signal showLoginPage()
-  // Show Account page
-  signal showAccountPage()
-  // Helper to warn users first before performing the logout.
-  signal requestLogout()
 
   // The title of the first active error-level notification if there is one, or
   // "" if there are no active errors.

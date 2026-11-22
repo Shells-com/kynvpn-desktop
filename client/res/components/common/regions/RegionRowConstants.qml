@@ -21,7 +21,6 @@ import PIA.NativeAcc 1.0 as NativeAcc
 
 // This is the common base for all rows in the regions list, which includes:
 // - RegionAuto (the "auto" row)
-// - DedicatedIpRegion (dedicated IP regions)
 // - RegionRowBase (country group rows and individual region rows)
 //
 // (RegionRowBase's name is mostly historical, as originally those were the only

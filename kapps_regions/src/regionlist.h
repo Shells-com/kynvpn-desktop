@@ -18,45 +18,11 @@
 
 #pragma once
 #include "region.h"
-#include <kapps_regions/dedicatedip.h>
 #include <kapps_core/src/corejson.h>
 #include <unordered_map>
 #include <vector>
 
 namespace kapps::regions {
-
-// Dedicated IP structure used to indicate DIPs to RegionList.  This is similar
-// to the KARDedicatedIP API structure but adapted to internal types.
-//
-// All members are non-owning; this is only used to describe DIPs to the
-// constructor so internal representations can be built.
-struct DedicatedIp
-{
-    // The client's artificial "region ID" for the generated DIP region.
-    core::StringSlice dipRegionId;
-    // The IPv4 address of the VPN server for this dedicated IP
-    core::Ipv4Address address;
-    // The certificate common name for this server
-    core::StringSlice commonName;
-    // FQDN of the server - only used on some platforms for IKEv2, empty if not
-    // needed
-    core::StringSlice fqdn;
-    // The service group(s) from the general regions list to apply to this
-    // region - indicates the available protocols, ports, etc.  Represents the
-    // deployment configuration applied by Ops.  OpenVPN ports are replaced by
-    // openVpnUdpPorts/openVpnTcpPorts.
-    core::ArraySlice<const core::StringSlice> serviceGroups;
-    // The region ID for the corresponding region - required for DIP regions.
-    // Metadata information such as country name, region name, geo flag, etc.
-    // are taken from this region, and auxiliary services such as
-    // meta/Shadowsocks are used from this region when needed.
-    core::StringSlice correspondingRegionId;
-    // OpenVPN UDP/TCP ports for this dedicated IP.  DIP over OpenVPN targets
-    // DIP-specific ports, so these replace the OpenVPN ports of any service
-    // group that provides that OpenVPN service.
-    core::ArraySlice<const std::uint16_t> openVpnUdpPorts;
-    core::ArraySlice<const std::uint16_t> openVpnTcpPorts;
-};
 
 // Manual region structure used to indicate manual regions to RegionList.  This
 // is similar to the KARManualRegion API structure but adapted to internal
@@ -81,8 +47,7 @@ struct ManualRegion
     // region - indicates the available protocols, ports, etc.  Represents the
     // deployment configuration applied by Ops.
     core::ArraySlice<const core::StringSlice> serviceGroups;
-    // The region ID for the corresponding region.  Unlike DIPs, this is
-    // optional for manual regions.
+    // The region ID for the corresponding region (optional).
     core::StringSlice correspondingRegionId;
 
     // Additional overrides for specific testing
@@ -102,8 +67,8 @@ private:
     // Service group map used when building regions
     using ServiceGroups = std::unordered_map<core::StringSlice, std::shared_ptr<ServiceGroup>>;
     // Region map used when building regions.  This _only_ includes standard
-    // regions, because DIP/manual regions cannot reference another DIP/manual
-    // region as the "corresponding region".
+    // regions, because manual regions cannot reference another manual region
+    // as the "corresponding region".
     //
     // There's no need to hold more refs on the regions here since they are
     // held by _regionsById when this is used.
@@ -115,7 +80,7 @@ private:
 public:
     // RegionList can be created from the PIA regions list v6 format JSON as
     // well.  To do that, construct a RegionList with:
-    //   `RegionList{RegionList::PIAv6, json, dips, manual}`
+    //   `RegionList{RegionList::PIAv6, json, shadowsocksJson, manual}`
     static struct PIAv6_t {} PIAv6;
 
 public:
@@ -123,13 +88,11 @@ public:
 
     RegionList(core::StringSlice regionsJson,
                core::StringSlice shadowsocksJson,
-               core::ArraySlice<const DedicatedIp> dips,
                core::ArraySlice<const ManualRegion> manual);
 
     // Construct from the legacy PIAv6 format; see RegionList::PIAv6 above
     RegionList(PIAv6_t, core::StringSlice regionsJson,
                core::StringSlice shadowsocksJson,
-               core::ArraySlice<const DedicatedIp> dips,
                core::ArraySlice<const ManualRegion> manual);
 
     // Default copy and assign are fine - _regions and _regionsById in both
@@ -196,10 +159,6 @@ private:
                                      const nlohmann::json &jsonServer)
         -> std::shared_ptr<ServiceGroup>;
 
-    // Build dedicated IP regions from the information given to the constructor
-    void buildDipRegions(const core::ArraySlice<const DedicatedIp> &dips,
-                         const ServiceGroups &groups,
-                         const StdRegionsById &stdRegions);
     // Build manual regions from the information given to the constructor
     void buildManualRegions(const core::ArraySlice<const ManualRegion> &manualRegions,
                             const ServiceGroups &groups,

@@ -99,39 +99,6 @@ Item {
     settingValue: location
   }
 
-  readonly property bool isDedicatedIp: {
-    var loc = Daemon.state.availableLocations[location]
-    return !!(loc && loc.dedicatedIp)
-  }
-
-  // This is the silhouette of the DIP badge rendered in the background color of
-  // the dashboard.  This prevents the flag from showing through the badge when
-  // they're <100% opaque.
-  //
-  // We could alternately group these into a layer and alpha-blend the layer,
-  // but this tweak works well enough to avoid the need to allocate layers for
-  // these buttons.
-  Image {
-    anchors.horizontalCenter: flag.right
-    anchors.verticalCenter: flag.top
-    visible: isDedicatedIp
-    source: Theme.dashboard.quickConnectDipBackgroundImage
-    width: sourceSize.width / 2
-    height: sourceSize.height / 2
-  }
-
-  // DIP badge itself.  Rendered with flag's opacity so it appears to be part
-  // of the flag (changes with hover / select).
-  Image {
-    anchors.horizontalCenter: flag.right
-    anchors.verticalCenter: flag.top
-    visible: isDedicatedIp
-    opacity: flag.opacity
-    source: Theme.dashboard.quickConnectDipBadgeImage
-    width: sourceSize.width / 2
-    height: sourceSize.height / 2
-  }
-
   Image {
     anchors.horizontalCenter: flag.right
     anchors.verticalCenter: flag.bottom

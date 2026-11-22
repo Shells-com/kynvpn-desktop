@@ -35,7 +35,6 @@
 #include <QTcpSocket>
 #include <QTimer>
 #include <QHostInfo>
-#include <QRandomGenerator>
 #include <QNetworkProxy>
 
 // For use by findInterfaceIp on Mac/Linux
@@ -104,10 +103,6 @@ namespace
     // limit we abandon the connection.  This is intended to detect waking from
     // sleep; see updateByteCounts()
     const std::chrono::minutes bytecountAbandonLimit{4};
-
-    // Length of the random suffix added to Dedicated IP region usernames; see
-    // ConnectionConfig::ConnectionConfig()
-    const int dipUsernameRandSuffixChars{8};
 
     [[maybe_unused]] kapps::core::ConfigWriter &operator<<(kapps::core::ConfigWriter &w, const QString &str)
     {
@@ -559,46 +554,19 @@ ConnectionConfig::ConnectionConfig(DaemonSettings &settings, StateModel &state,
             << "- using OpenVPN";
     }
 
-    // Get the credentials that will be used to authenticate
-    // For dedicated IP regions, use the DIP token
-    if(_pVpnLocation && _pVpnLocation->isDedicatedIp())
-    {
-        // Dedicated IP region, use DIP token credentials.  Find the DIP token
-        // from the account information
-        const auto &accountDips = account.dedicatedIps();
-        auto itAccountDip = std::find_if(accountDips.begin(), accountDips.end(),
-            [this](const AccountDedicatedIp &accountDip)
-            {
-                return accountDip.id() == _pVpnLocation->id();
-            });
-        if(itAccountDip != accountDips.end())
-        {
-            // The random identifier at the end of the username just allows the
-            // server to accept multiple simultaneous connections on the same
-            // dedicated IP, as some auth backends can't handle more than one
-            // connection using the same username.
-            _vpnUsername = QStringLiteral("dedicated_ip_") +
-                itAccountDip->dipToken() +
-                QStringLiteral("_%1").arg(QRandomGenerator::global()->generate(),
-                               dipUsernameRandSuffixChars, 16, QChar{'0'});
-            _vpnPassword = itAccountDip->ip();
-        }
-    }
-    else
-    {
-        // Normal region, use account authentication (credentials or token)
-        _vpnUsername = account.openvpnUsername();
-        _vpnPassword = account.openvpnPassword();
-        _vpnToken = account.token();
+    // Get the credentials that will be used to authenticate (account
+    // credentials or token)
+    _vpnUsername = account.openvpnUsername();
+    _vpnPassword = account.openvpnPassword();
+    _vpnToken = account.token();
 
-        // WireGuard auth requires a token.  If we haven't been able to obtain a
-        // token, use OpenVPN.
-        if(_method == Method::Wireguard && _vpnToken.isEmpty())
-        {
-            qInfo() << "Using OpenVPN instead of WireGuard for this connection, auth token is not available";
-            _method = Method::OpenVPN;
-            _methodForcedByAuth = true;
-        }
+    // WireGuard auth requires a token.  If we haven't been able to obtain a
+    // token, use OpenVPN.
+    if(_method == Method::Wireguard && _vpnToken.isEmpty())
+    {
+        qInfo() << "Using OpenVPN instead of WireGuard for this connection, auth token is not available";
+        _method = Method::OpenVPN;
+        _methodForcedByAuth = true;
     }
 
     // Read the DNS setting
@@ -692,13 +660,10 @@ ConnectionConfig::ConnectionConfig(DaemonSettings &settings, StateModel &state,
         }
 
         // The protocol might have been forced to TCP if Shadowsocks was enabled.
-        // Dedicated IPs have their own port settings, DIP over OpenVPN targets
-        // DIP-specific ports.
-        const bool dedicatedIp = _pVpnLocation && _pVpnLocation->isDedicatedIp();
         if(_openvpnProtocol == Protocol::TCP)
-            _openvpnRemotePort = dedicatedIp ? settings.dipRemotePortTCP() : settings.remotePortTCP();
+            _openvpnRemotePort = settings.remotePortTCP();
         else
-            _openvpnRemotePort = dedicatedIp ? settings.dipRemotePortUDP() : settings.remotePortUDP();
+            _openvpnRemotePort = settings.remotePortUDP();
 
         // Automatic transport - can't be used with a proxy (we could not be
         // confident that a failure to connect is due to a port being
@@ -792,26 +757,9 @@ bool ConnectionConfig::hasChanged(const ConnectionConfig &other) const
     QString otherVpnLocationId = other.vpnLocation() ? other.vpnLocation()->id() : QString{};
     QString otherSsLocationId = other.shadowsocksLocation() ? other.shadowsocksLocation()->id() : QString{};
 
-    // For dedicated IP locations, the "username" used to authenticate has
-    // random data on the end of it since some auth backends can't handle more
-    // than one simultaneous connection with the same username.  Ignore this; it
-    // doesn't indicate settings have changed.
-    QString userFixedPart{vpnUsername()};
-    if(userFixedPart.size() >= dipUsernameRandSuffixChars && vpnLocation() &&
-        vpnLocation()->isDedicatedIp())
-    {
-        userFixedPart = userFixedPart.left(userFixedPart.size() - dipUsernameRandSuffixChars);
-    }
-    QString otherUserFixedPart{vpnUsername()};
-    if(otherUserFixedPart.size() >= dipUsernameRandSuffixChars && other.vpnLocation() &&
-        other.vpnLocation()->isDedicatedIp())
-    {
-        otherUserFixedPart = otherUserFixedPart.left(otherUserFixedPart.size() - dipUsernameRandSuffixChars);
-    }
-
     return method() != other.method() ||
         methodForcedByAuth() != other.methodForcedByAuth() ||
-        userFixedPart != otherUserFixedPart ||
+        vpnUsername() != other.vpnUsername() ||
         vpnPassword() != other.vpnPassword() ||
         vpnToken() != other.vpnToken() ||
         openvpnCipher() != other.openvpnCipher() ||

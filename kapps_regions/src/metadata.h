@@ -32,19 +32,12 @@ public:
     // Create Metadata from the metadata JSON.  Remove any attached signature if
     // it was present.
     //
-    // Dedicated IP and manual region information can also be attached if you
-    // want Metadata to generate region displays for those regions.  These can
-    // be omitted if you don't need them.
-    //
-    // - For Dedicated IPs, Metadata duplicates the corresponding region's
-    //   RegionDisplay with the DIP region ID, so the client does not have to
-    //   manually fall back to the corresponding region.  The presentation
-    //   should still include the DIP address, etc.
-    // - For manual regions, Metadata fabricates a dummy CountryDisplay and
-    //   RegionDisplay.  There are no translations, but there is en-US display
+    // Manual region information can also be attached if you want Metadata to
+    // generate region displays for those regions (it can be omitted if you
+    // don't need them).  Metadata fabricates a dummy CountryDisplay and
+    // RegionDisplay.  There are no translations, but there is en-US display
     //   text filled in (for example, the region name becomes "<cn> - <ip>")
     Metadata(core::StringSlice metadataJson,
-             core::ArraySlice<const DedicatedIp> dips,
              core::ArraySlice<const ManualRegion> manual);
 
     // Like RegionList, the legacy PIA metadata v2 format can be loaded also.
@@ -52,7 +45,6 @@ public:
     // the regions list to metadata in v7, so the legacy support reads the
     // corresponding data from regions v6.
     Metadata(core::StringSlice regionsv6Json, core::StringSlice metadatav2Json,
-             core::ArraySlice<const DedicatedIp> dips,
              core::ArraySlice<const ManualRegion> manual);
 
     // Like RegionList, we need to implement moves to ensure the
@@ -192,10 +184,6 @@ private:
         core::StringSlice regionId, core::StringSlice countryCode,
         core::StringSlice regionName,
         const std::unordered_map<Bcp47Tag, core::StringSlice> &prefixMap);
-
-    // Copy the region displays for DIP regions' corresponding regions, so the
-    // client doesn't have to fall back manually
-    void copyDipRegionDisplays(core::ArraySlice<const DedicatedIp> dips);
 
     // Build a region and country display for manual regions
     void buildManualRegionDisplays(core::ArraySlice<const ManualRegion> manualRegions);

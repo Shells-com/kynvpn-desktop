@@ -58,17 +58,6 @@ bool KARRegionGeoLocated(const KARRegion *pRegion);
 KAPPS_REGIONS_EXPORT
 bool KARRegionOffline(const KARRegion *pRegion);
 
-// Whether the region is a DIP region (just tests that the DIP address != 0)
-KAPPS_REGIONS_EXPORT
-bool KARRegionIsDedicatedIp(const KARRegion *pRegion);
-// If the region is a DIP region, the DIP address.  This is also the address of
-// each server providing VPN services, but note that other servers will also
-// appear in this region for 'meta', etc.
-//
-// Returns zero if the region is not a DIP region.
-KAPPS_REGIONS_EXPORT
-KACIPv4Address KARRegionDedicatedIpAddress(const KARRegion *pRegion);
-
 // Test whether any server in the region offers the specified service.  For
 // services offering multiple ports, this indicates that at least one port is
 // available on at least one server.

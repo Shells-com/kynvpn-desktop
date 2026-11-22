@@ -40,8 +40,6 @@ enum CliExitCode : int
     RequiresClient,
     NotLoggedIn,
     UnknownSetting,
-    DedicatedIpTokenExpired,
-    DedicatedIpTokenInvalid,
     OtherError = 127,
 };
 

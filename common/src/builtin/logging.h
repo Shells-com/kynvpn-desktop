@@ -107,14 +107,12 @@ public:
     //
     // Replacement texts should generally have some semantic meaning, so (for
     // example) different values can be differentiated, and so issues/warnings
-    // could still be detected (for example, dedicated IP addresses and tokens
-    // are replaced with <<DIP IP {region}>>, <<DIP token {{region}>>).
+    // could still be detected.
     //
     // There is no way to remove a redaction.  This is intentional, as in the
     // daemon it is difficult to be sure when a redaction could never occur
-    // after the relevant value is removed (consider removing a dedicated IP
-    // while still connected to that IP, etc.; OpenVPN might still trace the IP
-    // at some point until the connection is completely torn down).
+    // after the relevant value is removed (a VPN connection might still trace
+    // a value until it is completely torn down).
     static void addRedaction(const QString &redact, const QString &replace);
     // Redact a piece of text with the current redactions in Logger.  (Used when
     // generating a diagnostics file for a debug report.)

@@ -53,11 +53,6 @@ SecondaryWindow {
   contentLogicalWidth: 200
   contentLogicalHeight: 200
 
-  // The "dedicated IP" page currently is shown based on a feature toggle, or
-  // if any dedicated IPs have already been added.
-  readonly property bool showDedicatedIp: Daemon.data.flags.includes("dedicated_ip") ||
-    Daemon.state.dedicatedIpLocations.length > 0
-
   // Limit InfoTips' texts to this width (both because the settings window is
   // pretty wide, and so it's consistent for both horizontal and vertical
   // layouts)
@@ -84,7 +79,6 @@ SecondaryWindow {
     'protocol': QT_TR_NOOP("Protocols", 'setting-title'),
     'network': QT_TR_NOOP("Network", 'setting-title'),
     'privacy': QT_TR_NOOP("Privacy", 'setting-title'),
-    'dedicated-ip': QT_TR_NOOP("Dedicated IP", 'setting-title'),
     'automation': QT_TR_NOOP("Automation", 'setting-title'),
     'split-tunnel': QT_TR_NOOP("Split Tunnel", 'setting-title'),
     'multihop': QT_TR_NOOP("Multi-Hop", 'setting-title'),
@@ -109,10 +103,6 @@ SecondaryWindow {
       {
         name: 'privacy',
         component: "privacy/PrivacyPage.qml"
-      },
-      {
-        name: 'dedicated-ip',
-        component: "dedicated-ip/DedicatedIpPage.qml"
       },
       {
         name: 'automation',
@@ -293,9 +283,6 @@ SecondaryWindow {
     }
     function onShowHelpPage() {
       settings.showPage('help')
-    }
-    function onShowAccountPage() {
-      settings.showPage('account')
     }
 
     function startDriverReinstall(driverName) {

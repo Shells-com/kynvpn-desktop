@@ -224,7 +224,7 @@ Dialog {
   // Dialog, which close the dialog (for accept/reject).
   //
   // In some cases, the "accept" button must take an asynchronous action and
-  // only close the dialog if the action is successful (DedicatedIpAddRow).
+  // only close the dialog if the action is successful.
   // The button must still have the Accept role, so it is sorted correctly by
   // the button box, but we don't want the default action.
   //

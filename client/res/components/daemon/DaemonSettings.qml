@@ -39,8 +39,6 @@ QtObject {
   readonly property bool enableMACE: NativeDaemon.settings.enableMACE
   readonly property int remotePortUDP: NativeDaemon.settings.remotePortUDP
   readonly property int remotePortTCP: NativeDaemon.settings.remotePortTCP
-  readonly property int dipRemotePortUDP: NativeDaemon.settings.dipRemotePortUDP
-  readonly property int dipRemotePortTCP: NativeDaemon.settings.dipRemotePortTCP
   readonly property int mtu: NativeDaemon.settings.mtu
   readonly property string cipher: NativeDaemon.settings.cipher
   readonly property string windowsIpMethod: NativeDaemon.settings.windowsIpMethod
@@ -54,7 +52,6 @@ QtObject {
   readonly property string updateChannel: NativeDaemon.settings.updateChannel
   readonly property string betaUpdateChannel: NativeDaemon.settings.betaUpdateChannel
   readonly property bool offerBetaUpdates: NativeDaemon.settings.offerBetaUpdates
-  readonly property string serviceQualityAcceptanceVersion: NativeDaemon.settings.serviceQualityAcceptanceVersion
   readonly property bool splitTunnelActivationFailed: NativeDaemon.settings.splitTunnelActivationFailed
   readonly property bool splitTunnelEnabled: NativeDaemon.settings.splitTunnelEnabled
   readonly property bool splitTunnelDNS: NativeDaemon.settings.splitTunnelDNS

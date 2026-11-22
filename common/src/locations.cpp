@@ -53,7 +53,6 @@ auto buildModernLocations(const LatencyMap &latencies,
                           const QJsonObject &regionsObj,
                           const QJsonArray &shadowsocksObj,
                           const QJsonObject &metadataObj,
-                          const std::vector<AccountDedicatedIp> &dedicatedIps,
                           const ManualServer &manualServer)
     -> std::pair<LocationsById, kapps::regions::Metadata>
 {
@@ -86,20 +85,6 @@ auto buildModernLocations(const LatencyMap &latencies,
             convertedServiceGroups.back().push_back(qstrSlice(groupName));
         return convertedServiceGroups.back();
     };
-    std::vector<kapps::regions::DedicatedIp> dips;
-    dips.reserve(dedicatedIps.size());
-    for(const auto &accountDip : dedicatedIps)
-    {
-        dips.push_back({qstrSlice(accountDip.id()),
-                        kapps::core::Ipv4Address{accountDip.ip().toStdString()},
-                        qstrSlice(accountDip.cn()),
-                        {}, // FQDN is not used in PIA
-                        serviceGroupsSlice(accountDip.serviceGroups()),
-                        qstrSlice(accountDip.regionId()),
-                        accountDip.openvpnUdpPorts(),
-                        accountDip.openvpnTcpPorts()});
-    }
-
     std::vector<kapps::regions::ManualRegion> manual;
     manual.reserve(1);
     if(!manualServer.ip().isEmpty() && !manualServer.cn().isEmpty())
@@ -119,9 +104,9 @@ auto buildModernLocations(const LatencyMap &latencies,
 
     kapps::regions::RegionList regionlist{kapps::regions::RegionList::PIAv6,
                                           regionsJsonSlice, shadowsocksJsonSlice,
-                                          dips, manual};
+                                          manual};
     kapps::regions::Metadata metadata{regionsJsonSlice, metadataJsonSlice,
-                                      dips, manual};
+                                      manual};
 
     LocationsById newLocations;
     for(const auto &pRegion : regionlist.regions())
@@ -166,26 +151,19 @@ bool compareEntries(const Location &first, const Location &second)
 
 void buildGroupedLocations(const LocationsById &locations,
                            const kapps::regions::Metadata &metadata,
-                           std::vector<CountryLocations> &groupedLocations,
-                           std::vector<QSharedPointer<const Location>> &dedicatedIpLocations)
+                           std::vector<CountryLocations> &groupedLocations)
 {
     // Group the locations by country
     std::unordered_map<kapps::core::StringSlice, std::vector<QSharedPointer<const Location>>> countryGroups;
-    dedicatedIpLocations.clear();
 
     for(const auto &locationEntry : locations)
     {
         Q_ASSERT(locationEntry.second);
-        if(locationEntry.second->isDedicatedIp())
-            dedicatedIpLocations.push_back(locationEntry.second);
-        else
-        {
-            kapps::core::StringSlice countryCode;
-            auto pRegionDisplay = metadata.getRegionDisplay(locationEntry.second->id().toStdString());
-            if(pRegionDisplay)
-                countryCode = pRegionDisplay->country();
-            countryGroups[countryCode].push_back(locationEntry.second);
-        }
+        kapps::core::StringSlice countryCode;
+        auto pRegionDisplay = metadata.getRegionDisplay(locationEntry.second->id().toStdString());
+        if(pRegionDisplay)
+            countryCode = pRegionDisplay->country();
+        countryGroups[countryCode].push_back(locationEntry.second);
     }
 
     // Sort each countries' locations by latency, then id
@@ -202,9 +180,6 @@ void buildGroupedLocations(const LocationsById &locations,
     {
         std::sort(group.second.begin(), group.second.end(), sortLocations);
     }
-
-    // Sort dedicated IP locations in the same way
-    std::sort(dedicatedIpLocations.begin(), dedicatedIpLocations.end(), sortLocations);
 
     // Create country groups from the sorted lists
     groupedLocations.clear();
@@ -235,62 +210,17 @@ void buildGroupedLocations(const LocationsById &locations,
 
 void buildOpenVpnPortChoices(const LocationsById &locations,
                              DescendingPortSet &udpPorts,
-                             DescendingPortSet &tcpPorts,
-                             std::vector<quint16> &dipUdpPorts,
-                             std::vector<quint16> &dipTcpPorts)
+                             DescendingPortSet &tcpPorts)
 {
-    // Append the ports of a service in server order, skipping duplicates
-    auto appendOrderedPorts = [](const Location &location, Service service,
-                                 std::vector<quint16> &ports)
-    {
-        for(const auto &server : location.servers())
-        {
-            for(quint16 port : server.servicePorts(service))
-            {
-                if(std::find(ports.begin(), ports.end(), port) == ports.end())
-                    ports.push_back(port);
-            }
-        }
-    };
-
     udpPorts.clear();
     tcpPorts.clear();
-    dipUdpPorts.clear();
-    dipTcpPorts.clear();
     for(const auto &locationEntry : locations)
     {
         Q_ASSERT(locationEntry.second);
         const Location &location = *locationEntry.second;
-        if(location.isDedicatedIp())
-        {
-            appendOrderedPorts(location, Service::OpenVpnUdp, dipUdpPorts);
-            appendOrderedPorts(location, Service::OpenVpnTcp, dipTcpPorts);
-        }
-        else
-        {
-            location.allPortsForService(Service::OpenVpnUdp, udpPorts);
-            location.allPortsForService(Service::OpenVpnTcp, tcpPorts);
-        }
+        location.allPortsForService(Service::OpenVpnUdp, udpPorts);
+        location.allPortsForService(Service::OpenVpnTcp, tcpPorts);
     }
-}
-
-quint16 dedicatedIpPortToUse(uint selectedPort, const std::vector<quint16> &dipPorts)
-{
-    if(dipPorts.empty())
-        return 0;
-    if(std::find(dipPorts.begin(), dipPorts.end(), selectedPort) != dipPorts.end())
-        return static_cast<quint16>(selectedPort);
-    return dipPorts.front();
-}
-
-bool dedicatedIpLacksOpenVpn(const DaemonSettings &settings, const Location &location)
-{
-    if(!location.isDedicatedIp() || settings.method() != QStringLiteral("openvpn"))
-        return false;
-
-    const bool useTcp = settings.protocol() == QStringLiteral("tcp") ||
-        (settings.proxyEnabled() && settings.proxyType() == QStringLiteral("shadowsocks"));
-    return !location.hasService(useTcp ? Service::OpenVpnTcp : Service::OpenVpnUdp);
 }
 
 NearestLocations::NearestLocations(const LocationsById &allLocations)

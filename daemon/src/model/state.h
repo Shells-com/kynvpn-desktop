@@ -279,9 +279,7 @@ public:
     JsonProperty(Optional<Server>, connectedServer);
 
     // Available regions, mapped by region ID.  These are from either the
-    // current or new regions list.  This includes both dedicated IP regions and
-    // regular regions, which are treated the same way by most logic referring
-    // to regions.
+    // current or new regions list.
     JsonProperty(LocationsById, availableLocations);
 
     // Metadata for all locations and countries; includes map coordinates,
@@ -293,9 +291,7 @@ public:
     // setting.
     //
     // This is used for display purposes - in regions lists, in the CLI
-    // "get regions", etc.  It does _not_ include dedicated IP regions, which
-    // are handled differently in display contexts (those are in
-    // dedicatedIpLocations)
+    // "get regions", etc.
     //
     // This is provided by the daemon to ensure that the client and daemon
     // handle these in exactly the same way.  Although Daemon itself only
@@ -307,11 +303,6 @@ public:
     // first).  Ties are broken by country code.
     JsonProperty(std::vector<CountryLocations>, groupedLocations);
 
-    // Dedicated IP locations sorted by latency with the same tie-breaking logic
-    // as groupedLocations().  This is used in display contexts alongside
-    // groupedLocations(), as dedicated IP regions are displayed differently.
-    JsonProperty(std::vector<QSharedPointer<const Location>>, dedicatedIpLocations);
-
     // All supported ports for the OpenVpnUdp and OpenVpnTcp services in the
     // active infrastructure (union of the supported ports among all advertised
     // servers).  This can be derived from the regions lists above, but this
@@ -319,29 +310,8 @@ public:
     //
     // This is just used to define the choices presented in the "Remote Port"
     // drop-down.
-    //
-    // Dedicated IP ports are not included, they are in the
-    // dedicatedIpOpenvpn*PortChoices below.
     JsonProperty(DescendingPortSet, openvpnUdpPortChoices);
     JsonProperty(DescendingPortSet, openvpnTcpPortChoices);
-
-    // All supported ports for the OpenVpnUdp and OpenVpnTcp services among the
-    // dedicated IP regions.  DIP over OpenVPN targets DIP-specific ports, so
-    // these are the choices for the dedicated IP remote port settings
-    // (DaemonSettings::dipRemotePortUDP/TCP).
-    //
-    // These keep the order from the DIP API; the first port is used when the
-    // DIP port setting is 0 or is a port the DIP doesn't offer.
-    JsonProperty(std::vector<quint16>, dedicatedIpOpenvpnUdpPortChoices);
-    JsonProperty(std::vector<quint16>, dedicatedIpOpenvpnTcpPortChoices);
-
-    // The OpenVPN UDP/TCP ports used for a dedicated IP connection, computed by
-    // dedicatedIpPortToUse() from DaemonSettings::dipRemotePortUDP/TCP and the
-    // choices above.  0 if no DIP offers that service.  Only the user changes
-    // the settings, so if the selected port stops being offered and is offered
-    // again later, it is used again.
-    JsonProperty(quint16, dedicatedIpOpenvpnUdpPort);
-    JsonProperty(quint16, dedicatedIpOpenvpnTcpPort);
 
     // Per-interval bandwidth measurements while connected to the VPN.  Only a
     // limited number of intervals are kept (new values past the limit will bump
@@ -449,13 +419,6 @@ public:
     // the connection is not working, this will be set, and the client will show
     // a warning.
     JsonProperty(bool, connectionProblem);
-    // A dedicated IP will expire soon.  When active, the number of days until
-    // the next expiration is also given.
-    JsonProperty(quint64, dedicatedIpExpiring);
-    JsonProperty(int, dedicatedIpDaysRemaining);
-    // A dedicated IP has changed (as observed by the daemon when refreshing
-    // DIP info).  Cleared if the notification is dismissed.
-    JsonProperty(quint64, dedicatedIpChanged);
 
     // We failed to configure DNS on linux
     JsonProperty(qint64, dnsConfigFailed);

@@ -27,6 +27,7 @@
 #include <common/src/builtin/path.h>
 #include "version.h"
 #include "brand.h"
+#include "product.h"
 #include <common/src/builtin/util.h>
 #include <common/src/apinetwork.h>
 #if defined(Q_OS_WIN)
@@ -48,7 +49,6 @@
 #include <QDir>
 #include <QDateTime>
 #include <QRegularExpression>
-#include <QRandomGenerator>
 #include <QRegularExpression>
 #include <QStringView>
 
@@ -74,13 +74,6 @@ namespace
     //After they're initially loaded, we refresh every 10 minutes
     const std::chrono::minutes regionsRefreshInterval{10}, publicIpRefreshInterval{10};
     const std::chrono::hours modernRegionsMetaRefreshInterval{48};
-
-    // Dedicated IPs are refreshed with the same interval as the regions list
-    // (but not necessarily at the same time).  These don't have a "fast"
-    // interval because we fetch them once when adding the token, and they don't
-    // use a JsonRefresher since DIP info comes from an authenticated API POST.
-    const std::chrono::minutes dipRefreshFastInterval{10};
-    const std::chrono::hours dipRefreshSlowInterval{24};
 
     // Resource paths for various regions-related resource (relative to the API
     // base)
@@ -274,27 +267,6 @@ Daemon::Daemon(QObject* parent)
     initCrashReporting(false);
 #endif
 
-    // Redact dedicated IP addresses and tokens from logs.  We can't just avoid
-    // tracing these, because OpenVPN and WireGuard may trace them, etc.  Set
-    // this up before reading the account information so the redactions will
-    // apply if saved dedicated IPs are loaded.
-    connect(&_account, &DaemonAccount::dedicatedIpsChanged, this, [this]()
-    {
-        for(const auto &dedicatedIp : _account.dedicatedIps())
-        {
-            // We can use the dedicated IP region ID in the redaction.
-            // This is a random value, so:
-            // - the IP/token can't be derived from the region ID
-            // - a suspected IP/token can't even be matched up to the region ID
-            //   (this is why we use a random value and not a hash of some kind)
-            Logger::addRedaction(dedicatedIp.ip(), QStringLiteral("DIP IP %1").arg(dedicatedIp.id()));
-            Logger::addRedaction(dedicatedIp.dipToken(), QStringLiteral("DIP token %1").arg(dedicatedIp.id()));
-            // The CN is currently not unique per DIP, but redact it too in
-            // case that changes.
-            Logger::addRedaction(dedicatedIp.cn(), QStringLiteral("DIP CN %1").arg(dedicatedIp.id()));
-        }
-    });
-
     // Let the client know whether we have an account token (but not the actual
     // token value)
     connect(&_account, &DaemonAccount::tokenChanged, this, [this]()
@@ -324,9 +296,6 @@ Daemon::Daemon(QObject* parent)
     // Refresh account information every hour.
     _accountRefreshTimer.setInterval(msec(std::chrono::hours(1)));
     connect(&_accountRefreshTimer, &QTimer::timeout, this, &Daemon::refreshAccountInfo);
-
-    _dedicatedIpRefreshTimer.setInterval(msec(dipRefreshFastInterval));
-    connect(&_dedicatedIpRefreshTimer, &QTimer::timeout, this, &Daemon::refreshDedicatedIps);
 
     _memTraceTimer.setInterval(msec(std::chrono::minutes(5)));
     connect(&_memTraceTimer, &QTimer::timeout, this, &Daemon::traceMemory);
@@ -435,9 +404,6 @@ Daemon::Daemon(QObject* parent)
     _methodRegistry->add(RPC_METHOD(applySettings).defaultArguments(false));
     _methodRegistry->add(RPC_METHOD(resetSettings));
     _methodRegistry->add(RPC_METHOD(getCountryBestRegion));
-    _methodRegistry->add(RPC_METHOD(addDedicatedIp));
-    _methodRegistry->add(RPC_METHOD(removeDedicatedIp));
-    _methodRegistry->add(RPC_METHOD(dismissDedicatedIpChange));
     _methodRegistry->add(RPC_METHOD(connectVPN));
     _methodRegistry->add(RPC_METHOD(disconnectVPN));
     _methodRegistry->add(RPC_METHOD(startSnooze));
@@ -446,7 +412,6 @@ Daemon::Daemon(QObject* parent)
     _methodRegistry->add(RPC_METHOD(writeDummyLogs));
     _methodRegistry->add(RPC_METHOD(crash));
     _methodRegistry->add(RPC_METHOD(refreshMetadata));
-    _methodRegistry->add(RPC_METHOD(sendServiceQualityEvents));
     _methodRegistry->add(RPC_METHOD(notifyClientActivate));
     _methodRegistry->add(RPC_METHOD(notifyClientDeactivate));
     _methodRegistry->add(RPC_METHOD(emailLogin));
@@ -501,7 +466,7 @@ Daemon::Daemon(QObject* parent)
         [this]()
         {
             _state.needsReconnect(true);
-            Error err = connectVPN(ServiceQuality::ConnectionSource::Automatic);
+            Error err = connectVPN();
             if(err)
             {
                 qError() << "Daemon was unable to reconnect after a network change while using OpenVPN";
@@ -518,11 +483,6 @@ Daemon::Daemon(QObject* parent)
     connect(&_settings, &DaemonSettings::portForwardChanged, this,
             &Daemon::updatePortForwarder);
     updatePortForwarder();
-
-    connect(&_settings, &DaemonSettings::dipRemotePortUDPChanged, this,
-            &Daemon::updateDedicatedIpPorts);
-    connect(&_settings, &DaemonSettings::dipRemotePortTCPChanged, this,
-            &Daemon::updateDedicatedIpPorts);
 
     connect(&_environment, &Environment::overrideActive, this,
             &Daemon::setOverrideActive);
@@ -554,16 +514,6 @@ Daemon::Daemon(QObject* parent)
 
         if(_settings.enableBackgroundLatencyChecks())
             _modernLatencyTracker.start();
-
-        _dedicatedIpRefreshTimer.start();
-        // A DIP saved by an older version has no OpenVPN ports until it is
-        // refreshed, so refresh now instead of waiting for the timer
-        const auto &dips = _account.dedicatedIps();
-        if(std::any_of(dips.begin(), dips.end(), [](const AccountDedicatedIp &dip)
-            {return dip.openvpnUdpPorts().empty() && dip.openvpnTcpPorts().empty();}))
-        {
-            refreshDedicatedIps();
-        }
 
         _modernRegionRefresher.startOrOverride(environment().getModernRegionsListApi(),
                                                Path::ModernRegionOverride,
@@ -598,7 +548,6 @@ Daemon::Daemon(QObject* parent)
         _updateDownloader.run(false, _environment.getUpdateApi());
         _modernRegionRefresher.stop();
         _modernRegionMetaRefresher.stop();
-        _dedicatedIpRefreshTimer.stop();
         _modernLatencyTracker.stop();
         queueNotification(&Daemon::RPC_disconnectVPN);
         queueNotification(&Daemon::reapplyFirewallRules);
@@ -719,22 +668,6 @@ Daemon::Daemon(QObject* parent)
     // cycling crash loop and the dumps generated could fill up the user's available HD.
     auto daemonCrashDir = Path::DaemonDataDir / QStringLiteral("crashes");
     daemonCrashDir.cleanDirFiles(5);
-
-    auto ver = SemVersion::tryParse(_settings.serviceQualityAcceptanceVersion());
-    bool enableQualityEventsFlag = _data.hasFlag(QStringLiteral("service_quality_events"))
-            && !_settings.serviceQualityAcceptanceVersion().isEmpty();
-
-    _pServiceQuality.emplace(_apiClient, _environment, _account, _data, enableQualityEventsFlag, ver);
-    auto updateEventsEnabled = [this]()
-    {
-        auto ver = SemVersion::tryParse(_settings.serviceQualityAcceptanceVersion());
-        bool enableQualityEvents = _data.hasFlag(QStringLiteral("service_quality_events"))
-                && !_settings.serviceQualityAcceptanceVersion().isEmpty();
-        _pServiceQuality->enable(enableQualityEvents, ver);
-    };
-    connect(&_settings, &DaemonSettings::serviceQualityAcceptanceVersionChanged, this,
-            updateEventsEnabled);
-    connect(&_data, &DaemonData::flagsChanged, this, updateEventsEnabled);
 }
 
 Daemon::~Daemon()
@@ -871,7 +804,7 @@ void Daemon::RPC_applySettings(const QJsonObject &settings, bool reconnectIfNeed
         qWarning() << "Disconnecting, location"
             << _state.vpnLocations().nextLocation()->id()
             << "has no servers matching the obfuscation setting";
-        disconnectVPN(ServiceQuality::ConnectionSource::Manual);
+        disconnectVPN();
     }
 
     // If the VPN is enabled, a reconnect is needed, and the caller asked to
@@ -890,7 +823,7 @@ void Daemon::RPC_applySettings(const QJsonObject &settings, bool reconnectIfNeed
             // should still reflect the automation trigger.  All other
             // connection sources clear or update the trigger.
             auto automationLastTrigger = _state.automationLastTrigger();
-            Error err = connectVPN(ServiceQuality::ConnectionSource::Manual);
+            Error err = connectVPN();
             _state.automationLastTrigger(automationLastTrigger);
             if(err)
             {
@@ -965,120 +898,10 @@ QString Daemon::RPC_getCountryBestRegion(const QString &country)
     throw Error{HERE, Error::Code::JsonRPCInvalidRequest};
 }
 
-Async<void> Daemon::RPC_addDedicatedIp(const QString &token)
-{
-    return _apiClient.postRetry(*_environment.getApiv5(), QStringLiteral("dedicated_ip"),
-        QJsonDocument{QJsonObject{
-            {
-                QStringLiteral("tokens"),
-                QJsonArray{token}
-            }
-        }}, ApiClient::autoAuth(_account.username(), _account.password(), _account.token()))
-        ->next(this, [this](const Error &err, const QJsonDocument &json)
-            {
-                if(err)
-                    throw err;
-
-                // We passed one token, so the result should be a one-element
-                // array.  If it's not for any reason (not an array, does not
-                // contain 1 element, etc.), we get an empty QJsonObject here.
-                QJsonObject tokenData = json.array().at(0).toObject();
-
-                // If any of the JSON casts below fail, an exception is thrown,
-                // which means we reject the RPC and do not add the token (the
-                // response was malformed).
-                const QString &token = json_cast<QString>(tokenData["dip_token"], HERE);
-                const QString &status = json_cast<QString>(tokenData["status"], HERE);
-
-                // There's a specific response for "expired"
-                if(status == QStringLiteral("expired"))
-                {
-                    qWarning() << "Token is already expired, can't add it";
-                    throw Error{HERE, Error::Code::DaemonRPCDedicatedIpTokenExpired};
-                }
-
-                // There's a specific response for an invalid token too
-                if(status == QStringLiteral("invalid"))
-                {
-                    qWarning() << "Token is not valid, got status" << status;
-                    throw Error{HERE, Error::Code::DaemonRPCDedicatedIpTokenInvalid};
-                }
-
-                // If the status is anything other than "active" at this point,
-                // treat it as an error ("error" can be sent if the server
-                // encounters an internal error)
-                if(status != QStringLiteral("active"))
-                {
-                    qWarning() << "Can't check token, got unexpected status" << status;
-                    throw Error{HERE, Error::Code::ApiBadResponseError};
-                }
-
-                // Build the AccountDedicatedIp from the information returned
-                AccountDedicatedIp dipInfo;
-                dipInfo.dipToken(token);
-                applyDedicatedIpJson(tokenData, dipInfo);
-
-                auto dedicatedIps = _account.dedicatedIps();
-
-                // Check if we already have this token (in which case "adding"
-                // essentially just caused us to refresh it, reuse the region
-                // ID), or if we don't (generate a new region ID)
-                auto itExisting = std::find_if(dedicatedIps.begin(), dedicatedIps.end(),
-                    [&token](const AccountDedicatedIp &dip){return dip.dipToken() == token;});
-                if(itExisting != dedicatedIps.end())
-                {
-                    // Already have it; use the same region ID and update
-                    // in-place
-                    dipInfo.id(itExisting->id());
-                    *itExisting = std::move(dipInfo);
-                }
-                else
-                {
-                    // Don't have it, generate a new region ID.
-                    do
-                    {
-                        dipInfo.id(QStringLiteral("dip-%1")
-                            .arg(QRandomGenerator::global()->generate(), 8, 16, QChar{'0'}));
-                    }
-                    while(std::find_if(dedicatedIps.begin(), dedicatedIps.end(),
-                            [&dipInfo](const AccountDedicatedIp &dip){return dip.id() == dipInfo.id();})
-                                != dedicatedIps.end());
-                    dedicatedIps.push_back(std::move(dipInfo));
-                }
-
-                _account.dedicatedIps(std::move(dedicatedIps));
-
-                rebuildActiveLocations();
-            });
-}
-
-void Daemon::RPC_removeDedicatedIp(const QString &dipRegionId)
-{
-    auto dedicatedIps = _account.dedicatedIps();
-
-    auto newEnd = std::remove_if(dedicatedIps.begin(), dedicatedIps.end(),
-        [&dipRegionId](const AccountDedicatedIp &dip){return dip.id() == dipRegionId;});
-    dedicatedIps.erase(newEnd, dedicatedIps.end());
-
-    _account.dedicatedIps(std::move(dedicatedIps));
-
-    rebuildActiveLocations();
-}
-
-void Daemon::RPC_dismissDedicatedIpChange()
-{
-    auto dedicatedIps = _account.dedicatedIps();
-
-    for(auto &dip : dedicatedIps)
-        dip.lastIpChange(0);
-    _account.dedicatedIps(std::move(dedicatedIps));
-    rebuildActiveLocations();
-}
-
 void Daemon::RPC_connectVPN()
 {
     mustBeAwake(); // If this runs, the system must be awake
-    Error err = connectVPN(ServiceQuality::ConnectionSource::Manual);
+    Error err = connectVPN();
     // If we can't connect now (not logged in or daemon is inactive), forward
     // the error to the client.  The CLI has specific support for these errors.
     if(err)
@@ -1098,7 +921,7 @@ void Daemon::RPC_disconnectVPN()
     mustBeAwake(); // If this runs, the system must be awake
     // There's no additional logic needed for a manual disconnect.  This can't
     // fail, we don't count these, etc.
-    disconnectVPN(ServiceQuality::ConnectionSource::Manual);
+    disconnectVPN();
 }
 
 void Daemon::RPC_startSnooze(qint64 seconds)
@@ -1393,14 +1216,8 @@ void Daemon::RPC_crash()
 
 void Daemon::RPC_refreshMetadata()
 {
-    refreshDedicatedIps();
     refreshAccountInfo();
     _updateDownloader.refreshUpdate();
-}
-
-void Daemon::RPC_sendServiceQualityEvents()
-{
-    _pServiceQuality->sendEventsNow();
 }
 
 void Daemon::RPC_notifyClientActivate()
@@ -1603,7 +1420,6 @@ void Daemon::RPC_logout()
     QString tokenToExpire = _account.token();
 
     _account.reset();
-    _state.dedicatedIpLocations({});
     _settings.recentLocations({});
     _state.openVpnAuthFailed(0);
 
@@ -2278,8 +2094,6 @@ void Daemon::vpnStateChanged(VPNConnection::State state,
         if(_account.token().isEmpty())
             refreshAccountInfo();
 
-        refreshDedicatedIps();
-
         // When a new connection is established (not a reconnection), count a
         // successful session.  New connections are indicated by prior state
         // Connecting, reconnections would have prior state Reconnecting.
@@ -2365,12 +2179,6 @@ void Daemon::vpnStateChanged(VPNConnection::State state,
     // we disconnect occasionally.
     if(state == VPNConnection::State::Connected)
         queueNotification(&Daemon::logRoutingTable);
-
-    // Inform ServiceQuality of the Connected and Disconnected states
-    if(state == VPNConnection::State::Connected)
-        _pServiceQuality->vpnConnected();
-    else if(state == VPNConnection::State::Disconnected)
-        _pServiceQuality->vpnDisconnected();
 
     queueApplyFirewallRules();
 }
@@ -2459,91 +2267,19 @@ void Daemon::applyBuiltLocations(LocationsById newLocations,
 
     // Update the grouped locations from the new stored locations
     std::vector<CountryLocations> groupedLocations;
-    std::vector<QSharedPointer<const Location>> dedicatedIpLocations;
     buildGroupedLocations(_state.availableLocations(),
                           _state.regionsMetadata(),
-                          groupedLocations,
-                          dedicatedIpLocations);
+                          groupedLocations);
     _state.groupedLocations(std::move(groupedLocations));
-    _state.dedicatedIpLocations(std::move(dedicatedIpLocations));
-
-    // Find the closest expiration time for any dedicated IP, and find the most
-    // recent dedicated IP change
-    const auto &accountDips = _account.dedicatedIps();
-    auto itDip = accountDips.begin();
-    if(itDip == accountDips.end())
-    {
-        _state.dedicatedIpExpiring(0);
-        _state.dedicatedIpDaysRemaining(0);
-        _state.dedicatedIpChanged(0);
-    }
-    else
-    {
-        quint64 nextExpiration = itDip->expire();
-        quint64 lastDipChange = itDip->lastIpChange();
-        for(++itDip; itDip != accountDips.end(); ++itDip)
-        {
-            // All DIPs have an expiration time, we always find a value for
-            // nextExpiration
-            if(itDip->expire() < nextExpiration)
-                nextExpiration = itDip->expire();
-            // lastDipChange may be 0 if we haven't seen any DIPs that have
-            // actually changed yet.  Any actual change is >0
-            if(itDip->lastIpChange() > lastDipChange)
-                lastDipChange = itDip->lastIpChange();
-        }
-
-        // std::chrono::days requires C++20
-        using days = std::chrono::duration<int, std::ratio<86400>>;
-
-        // Display an upcoming expiration if it's within 5 days.  The "display
-        // threshold" for this expiration is the timestamp when we would start
-        // displaying it.
-        quint64 expirationDisplayThreshold = nextExpiration - msec(days{5});
-        std::chrono::milliseconds nowMs{QDateTime::currentMSecsSinceEpoch()};
-        if(expirationDisplayThreshold <= static_cast<quint64>(msec(nowMs)))
-        {
-            _state.dedicatedIpExpiring(expirationDisplayThreshold);
-            std::chrono::milliseconds timeRemaining{nextExpiration};
-            timeRemaining -= nowMs;
-            // Add 12 hours (=0.5 days) and then truncate to effectively round
-            // to the nearest day.  (std::chrono::round requires C++17)
-            auto daysRemaining = std::chrono::duration_cast<days>(timeRemaining + std::chrono::hours{12});
-            // The remaining time might be negative due to clock skew or if we
-            // just haven't polled the DIP yet to remove it.
-            _state.dedicatedIpDaysRemaining(std::max(0, daysRemaining.count()));
-        }
-        else
-        {
-            // No expirations in the next 7 days.
-            _state.dedicatedIpExpiring(0);
-            _state.dedicatedIpDaysRemaining(0);
-        }
-
-        _state.dedicatedIpChanged(lastDipChange);
-    }
 
     // Calculate new location preferences
     calculateLocationPreferences();
 
     // Update the available ports
     DescendingPortSet udpPorts, tcpPorts;
-    std::vector<quint16> dipUdpPorts, dipTcpPorts;
-    buildOpenVpnPortChoices(_state.availableLocations(), udpPorts, tcpPorts,
-                            dipUdpPorts, dipTcpPorts);
+    buildOpenVpnPortChoices(_state.availableLocations(), udpPorts, tcpPorts);
     _state.openvpnUdpPortChoices(udpPorts);
     _state.openvpnTcpPortChoices(tcpPorts);
-    _state.dedicatedIpOpenvpnUdpPortChoices(dipUdpPorts);
-    _state.dedicatedIpOpenvpnTcpPortChoices(dipTcpPorts);
-    updateDedicatedIpPorts();
-}
-
-void Daemon::updateDedicatedIpPorts()
-{
-    _state.dedicatedIpOpenvpnUdpPort(dedicatedIpPortToUse(_settings.dipRemotePortUDP(),
-        _state.dedicatedIpOpenvpnUdpPortChoices()));
-    _state.dedicatedIpOpenvpnTcpPort(dedicatedIpPortToUse(_settings.dipRemotePortTCP(),
-        _state.dedicatedIpOpenvpnTcpPortChoices()));
 }
 
 bool Daemon::rebuildModernLocations(const QJsonObject &regionsObj,
@@ -2556,7 +2292,6 @@ bool Daemon::rebuildModernLocations(const QJsonObject &regionsObj,
                                                  regionsObj,
                                                  shadowsocksObj,
                                                  metadataObj,
-                                                 _account.dedicatedIps(),
                                                  _settings.manualServer());
 
         // Like the legacy list, if no regions are found, treat this as an error
@@ -2821,150 +2556,6 @@ void Daemon::refreshAccountInfo()
     }
 }
 
-void Daemon::applyRefreshedDedicatedIp(const QJsonObject &tokenData, int traceIdx,
-                                       std::vector<AccountDedicatedIp> &dedicatedIps)
-{
-    const QString &token = json_cast<QString>(tokenData["dip_token"], HERE);
-
-    auto itExistingDip = std::find_if(dedicatedIps.begin(), dedicatedIps.end(),
-        [&token](const AccountDedicatedIp &dip){return dip.dipToken() == token;});
-    // If the token is no longer known, don't re-add it, a refresh may have
-    // raced with a remove request.
-    if(itExistingDip == dedicatedIps.end())
-    {
-        qInfo() << "Ignoring DIP token" << traceIdx << "- it has already been removed";
-        return;
-    }
-
-    // If the token has expired, remove it - we don't show any specific message
-    // for this, since we displayed the "about to expire" message for some time
-    // prior to this.
-    //
-    // "invalid" is not common here, but if it occurs, remove the token (this
-    // might happen if the token is so old that it has been completely purged).
-    // If any any unexpected value (including empty) occurs, leave the token
-    // alone.
-    const QString &status = json_cast<QString>(tokenData["status"], HERE);
-    if(status == QStringLiteral("expired") || status == QStringLiteral("invalid"))
-    {
-        qInfo() << "Removing token" << traceIdx << "/" << itExistingDip->id()
-            << "due to updated status" << status;
-        dedicatedIps.erase(itExistingDip);
-        return;
-    }
-
-    if(status != QStringLiteral("active"))
-    {
-        qWarning() << "Not updating token" << traceIdx << "/"
-            << itExistingDip->id() << "due to unexpected status" << status;
-        return;
-    }
-
-    // It's present and still active, update it.
-    applyDedicatedIpJson(tokenData, *itExistingDip);
-}
-
-void Daemon::refreshDedicatedIps()
-{
-    if(_account.dedicatedIps().empty())
-        return; // Nothing to do
-
-    // Get the current dedicated IP tokens
-    QJsonArray dipTokens;
-    for(const auto &dip : _account.dedicatedIps())
-    {
-        dipTokens.push_back(dip.dipToken());
-    }
-
-    // Hang on to the number of tokens we requested just for diagnostics.  It's
-    // possible that _account.dedicatedIps() could change while we're waiting
-    // for the response if the user adds/removes tokens.
-    auto expectedSize = dipTokens.size();
-    qInfo() << "Refresh info for" << dipTokens.size() << "dedicated IPs";
-    _apiClient.postRetry(*_environment.getApiv5(), QStringLiteral("dedicated_ip"),
-        QJsonDocument{QJsonObject{{QStringLiteral("tokens"), dipTokens}}},
-        ApiClient::autoAuth(_account.username(), _account.password(), _account.token()))
-        ->notify(this, [this, expectedSize](const Error &err,
-                                            const QJsonDocument &json)
-        {
-            if(err)
-            {
-                qWarning() << "Unable to refresh dedicated IP info:" << err;
-                return;
-            }
-
-            _dedicatedIpRefreshTimer.setInterval(msec(dipRefreshSlowInterval));
-            auto dedicatedIps = _account.dedicatedIps();
-            int priorSize = dedicatedIps.size();
-
-            // If _account.dedicatedIps() has already changed, log this.  Note
-            // that this won't necessarily log all changes since it just checks
-            // the length, but any changes are handled correctly by
-            // applyRefreshedDedicatedIp() (tokens that no longer exist are
-            // ignored, any tokens that were added after the request are not
-            // updated).
-            if(expectedSize != priorSize)
-            {
-                qInfo() << "Stored dedicated IP count changed from"
-                    << expectedSize << "to" << priorSize
-                    << "while waiting for this response";
-            }
-
-            // If the response JSON is not an array, we get an empty array here
-            // and nothing happens.
-            const auto &dipJsonArray = json.array();
-
-            // If we didn't get the expected number of tokens back, trace it.
-            // This is handled correctly though, it's the same as if tokens were
-            // added while waiting for the response.
-            if(dipJsonArray.size() != expectedSize)
-            {
-                qWarning() << "Received" << dipJsonArray.size()
-                    << "responses after requesting" << expectedSize << "tokens";
-            }
-
-            int traceIdx = 0;
-            for(const auto &dipJson : dipJsonArray)
-            {
-                try
-                {
-                    applyRefreshedDedicatedIp(dipJson.toObject(), traceIdx, dedicatedIps);
-                }
-                catch(const Error &ex)
-                {
-                    qWarning() << "Not updating DIP token"
-                        << traceIdx << "- invalid response:" << ex;
-                }
-                ++traceIdx;
-            }
-
-            int newSize = dedicatedIps.size();
-            qInfo() << "Dedicated IP count changed from" << priorSize << "to"
-                << newSize << "after refresh, changed by" << (newSize-priorSize);
-            _account.dedicatedIps(std::move(dedicatedIps));
-            rebuildActiveLocations();
-        });
-
-    if(dipTokens.count() > 0 && _data.hasFlag(QStringLiteral("check_renew_dip"))) {
-        auto renewToken = dipTokens.first().toString();
-        _apiClient.postRetry(*_environment.getApiv2(), QStringLiteral("check_renew_dip"),
-                             QJsonDocument{QJsonObject{{QStringLiteral("token"), renewToken}}},
-                             ApiClient::autoAuth(_account.username(), _account.password(), _account.token()))
-                ->notify(this, [this, expectedSize](const Error &err,
-                                                    const QJsonDocument &json)
-                {
-                    Q_UNUSED(json);
-                    if(err)
-                    {
-                        qWarning() << "Unable to send renewal notification:" << err;
-                        return;
-                    }
-
-                    qDebug() << "Renewal notification sent successfully.";
-                });
-    }
-}
-
 // Load account info from the web API and return the result asynchronously
 // as a QJsonObject appropriate for assigning to DaemonAccount.
 //
@@ -3016,9 +2607,7 @@ Async<QJsonObject> Daemon::loadAccountInfo(const QString& username, const QStrin
 void Daemon::resetAccountInfo()
 {
     // Reset all fields except loggedIn
-    QJsonObject blank = DaemonAccount().toJsonObject();
-    blank.remove(QStringLiteral("dedicatedIps"));
-    _account.assign(blank);
+    _account.assign(DaemonAccount().toJsonObject());
 }
 
 void Daemon::reapplyFirewallRules()
@@ -3423,15 +3012,11 @@ void Daemon::upgradeSettings(bool existingSettingsFile)
         //  the situation where the connection fails silently. PP-1062
         _settings.proxyEnabled(false);
     }
-    if(previous < SemVersion{3, 3, 0}) {
-        const auto &oldServiceQualityFlag = _settings.get("sendServiceQualityEvents").toBool();
 
-        if(oldServiceQualityFlag) {
-            _settings.serviceQualityAcceptanceVersion ("3.2.0+06857");
-        } else {
-            _settings.serviceQualityAcceptanceVersion ("");
-        }
-    }
+    // The service quality opt-in was removed along with the events it
+    // enabled.  Settings keep unknown properties, so drop its old keys.
+    _settings.reset(QStringList{QStringLiteral("serviceQualityAcceptanceVersion"),
+                                QStringLiteral("sendServiceQualityEvents")});
 }
 
 void Daemon::calculateLocationPreferences()
@@ -3523,12 +3108,6 @@ bool Daemon::obfuscationMismatch() const
         return !pLocation->hasPlainWireGuard();
     }
 #endif
-}
-
-bool Daemon::dedicatedIpOpenVpnMismatch() const
-{
-    const auto &pLocation = _state.vpnLocations().nextLocation();
-    return pLocation && dedicatedIpLacksOpenVpn(_settings, *pLocation);
 }
 
 void Daemon::onUpdateRefreshed(const Update &availableUpdate,
@@ -3673,7 +3252,7 @@ void Daemon::applyCurrentAutomationRule()
             qInfo() << "Connect now due to automation rule:" << currentRule;
             // connectVPN() can fail if no account is logged in, etc. - in that
             // case, trace that the trigger failed.
-            err = connectVPN(ServiceQuality::ConnectionSource::Automatic);
+            err = connectVPN();
         }
         else
         {
@@ -3698,7 +3277,7 @@ void Daemon::applyCurrentAutomationRule()
         }
         // Call disconnectVPN() even if the VPN is already disabled, because it
         // can also end a snooze.
-        disconnectVPN(ServiceQuality::ConnectionSource::Automatic);
+        disconnectVPN();
     }
     else
     {
@@ -3743,7 +3322,7 @@ void Daemon::onAutomationRuleTriggered(const nullable_t<AutomationRule> &current
     }
 }
 
-Error Daemon::connectVPN(ServiceQuality::ConnectionSource source)
+Error Daemon::connectVPN()
 {
     // Cannot connect when no active client is connected (there'd be no way for
     // the daemon to know if the user logs out, etc.)
@@ -3778,15 +3357,6 @@ Error Daemon::connectVPN(ServiceQuality::ConnectionSource source)
         return {HERE, Error::Code::DaemonRPCObfuscationMismatch};
     }
 
-    // OpenVPN to a dedicated IP needs the DIP ports, a connection without them
-    // could only fail and retry.
-    if(dedicatedIpOpenVpnMismatch())
-    {
-        qWarning() << "Dedicated IP" << _state.vpnLocations().nextLocation()->id()
-            << "has no ports for the OpenVPN protocol in use";
-        return {HERE, Error::Code::DaemonRPCDedicatedIpNoOpenVpnPorts};
-    }
-
     // Note that for the rest of this logic, it is possible that the VPN is
     // already enabled (_state.vpnEnabled() is already true).  We still want to
     // apply most of the remaining logic, and in particular
@@ -3802,22 +3372,10 @@ Error Daemon::connectVPN(ServiceQuality::ConnectionSource source)
 
     _state.vpnEnabled(true);
 
-    // VpnConnection::connectVPN() returns false if the VPN was already
-    // enabled and no reconnect was needed.  In that case, do not log an
-    // attempt event, since this request had no effect.
-    if(_connection->connectVPN(_state.needsReconnect()))
-    {
-        // A new connection attempt started - either the VPN wasn't enabled, or
-        // it was and a reconnect was needed.
-        //
-        // If this is a reconnect while still connecting, the previous "attempt"
-        // event is left unresolved, since it was neither canceled nor
-        // established.
-        ServiceQuality::VpnProtocol protocol{ServiceQuality::VpnProtocol::OpenVPN};
-        if(_settings.method() == QStringLiteral("wireguard"))
-            protocol = ServiceQuality::VpnProtocol::WireGuard;
-        _pServiceQuality->vpnEnabled(protocol, source);
-    }
+    // Starts a connection, or a reconnect if one is needed to apply settings
+    // (VPNConnection::connectVPN() does nothing if the VPN was already enabled
+    // and no reconnect is needed).
+    _connection->connectVPN(_state.needsReconnect());
     _state.needsReconnect(false);
 
     // Clear any previous automation trigger since we've connected for some
@@ -3828,14 +3386,12 @@ Error Daemon::connectVPN(ServiceQuality::ConnectionSource source)
     return {};
 }
 
-void Daemon::disconnectVPN(ServiceQuality::ConnectionSource source)
+void Daemon::disconnectVPN()
 {
     _snoozeTimer.forceStopSnooze();
     _state.vpnEnabled(false);
     // Cancel any reconnect after wake before the state change below can restart it.
     _settings.connectOnWake(false);
-
-    _pServiceQuality->vpnDisabled(source);
 
     _connection->disconnectVPN();
 
@@ -4050,7 +3606,7 @@ void SnoozeTimer::startSnooze(qint64 seconds)
     // anyway for snooze).  The user didn't really ask to "disconnect", they
     // asked to "snooze" and "disconnect" is just how we implement the first
     // part of the snooze.
-    _daemon->disconnectVPN(ServiceQuality::ConnectionSource::Automatic);
+    _daemon->disconnectVPN();
     // Indicate that this disconnection is for snooze.
     g_state.snoozeEndTime(0);
     // Store the snooze length so we can start the timer after disconnect completes
@@ -4064,7 +3620,7 @@ void SnoozeTimer::stopSnooze()
     // (all other connections reset snooze - note that this calls
     // forceStopSnooze(), which also stops the snooze timer)
     auto snoozeEndTime = g_state.snoozeEndTime();
-    Error err = _daemon->connectVPN(ServiceQuality::ConnectionSource::Automatic);
+    Error err = _daemon->connectVPN();
     if(err)
     {
         // Can't resume from snooze, connect was not possible.  (Should rarely

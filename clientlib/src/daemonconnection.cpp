@@ -32,28 +32,6 @@ DaemonConnection::DaemonConnection(QObject* parent)
     connect(&_connectionTimer, &QTimer::timeout, this, [this]() {
         if (!_connected) socketError(QStringLiteral("Timeout waiting for daemon connection"));
     });
-
-    // Redact dedicated IP information.  Notes:
-    // - Clients don't have access to DIP tokens, so we don't add redactions
-    //   for those.
-    // - When adding a DIP region, these redactions aren't in place until the
-    //   region is added - the "add" code itself must be careful not to trace
-    //   the token.
-    // - These don't typically show up in GUI client logs anyway, but they do
-    //   show up in CLI client logs (the IP is used in the "friendly region ID")
-    connect(&state, &DaemonState::dedicatedIpLocationsChanged, this, [this]()
-    {
-        for(const auto &dipLoc : state.dedicatedIpLocations())
-        {
-            const auto &dipIp = dipLoc[QStringLiteral("dedicatedIp")].toString();
-            const auto &dipId = dipLoc[QStringLiteral("id")].toString();
-            const auto &dipCn = dipLoc[QStringLiteral("dedicatedIpCn")].toString();
-            if(!dipIp.isEmpty())
-                Logger::addRedaction(dipIp, QStringLiteral("DIP IP %1").arg(dipId));
-            if(!dipCn.isEmpty())
-                Logger::addRedaction(dipCn, QStringLiteral("DIP CN %1").arg(dipId));
-        }
-    });
 }
 
 DaemonConnection::~DaemonConnection()

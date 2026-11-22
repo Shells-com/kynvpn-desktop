@@ -21,7 +21,6 @@
 #include "dynamicrole.h"
 #include "countrydisplay.h"
 #include "regiondisplay.h"
-#include "dedicatedip.h"
 #include "manualregion.h"
 #include <kapps_core/stringslice.h>
 #include <kapps_core/arrayslice.h>
@@ -40,15 +39,12 @@ typedef struct KARMetadata KARMetadata;
 // are traced and ignored.  If the entire JSON is unusable, this returns
 // nullptr.
 //
-// Dedicated IP and manual regions can optionally be provided in order to
-// generate region displays for those also.  For Dedicated IPs, the
-// corresponding region's information is used.  (Presentations should still show
-// the DIP information.)  For manual regions, display information is built
-// (without translations) from the configured server CN and IP.  If region
-// displays are not needed for DIP and manual regions, these can be omitted.
+// Manual regions can optionally be provided in order to generate region
+// displays for those also.  Display information is built (without
+// translations) from the configured server CN and IP.  If region displays are
+// not needed for manual regions, these can be omitted.
 KAPPS_REGIONS_EXPORT
 const KARMetadata *KARMetadataCreate(KACStringSlice metadataJson,
-                                     const KARDedicatedIP *pDIPs, size_t dipCount,
                                      const KARManualRegion *pManualRegions, size_t manualCount);
 // Build the metadata from legacy PIA regions v6 and metadata v2 JSON.  Regions
 // is required in addition to metadata, because some metadata fields were in
@@ -74,13 +70,12 @@ const KARMetadata *KARMetadataCreate(KACStringSlice metadataJson,
 //    for the current set of region names but has some potential corner cases
 //    if some combinations of names were to appear.
 //
-// Like the constructor above, DIP and manual regions can be specified to build
-// region displays for these regions as well.  These can be omitted if they are
+// Like the constructor above, manual regions can be specified to build region
+// displays for these regions as well.  These can be omitted if they are
 // not needed.
 KAPPS_REGIONS_EXPORT
 const KARMetadata *KARMetadataCreatePiav6v2(KACStringSlice regionsv6Json,
                                             KACStringSlice metadatav2Json,
-                                            const KARDedicatedIP *pDIPs, size_t dipCount,
                                             const KARManualRegion *pManualRegions, size_t manualCount);
 KAPPS_REGIONS_EXPORT
 void KARMetadataDestroy(const KARMetadata *pMetadata);

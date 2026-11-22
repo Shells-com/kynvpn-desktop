@@ -105,17 +105,7 @@ namespace GetSetValue
         if(regionName.isEmpty())
             regionName = id;
 
-        QString cliName;
-        QString dedicatedIp = location["dedicatedIp"].toString();
-        if(!dedicatedIp.isEmpty())
-        {
-            cliName = QStringLiteral("dedicated-") + regionName +
-                QStringLiteral("-") + dedicatedIp;
-        }
-        else
-            cliName = regionName;
-
-        cliName = cliName.toLower();
+        QString cliName = regionName.toLower();
         // Replace any whitespace characters with '-'
         for(int i=0; i<cliName.length(); ++i)
         {
@@ -491,15 +481,8 @@ int GetCommand::exec(const QStringList &params, QCoreApplication &app)
         if(params[1] == GetSetType::regions)
         {
             // Print locations in the default order they're listed in the
-            // client - DIP locations by latency, then normal locations by
-            // country and latency
+            // client - by country and latency
             outln() << GetSetValue::locationAuto;
-
-            const auto &dedicatedIpLocations = client.connection().state["dedicatedIpLocations"].toArray();
-            for(const auto &dip : dedicatedIpLocations)
-            {
-                outln() << ValuePrinter::renderLocation(dip.toObject(), client.connection().state);
-            }
 
             const auto &groupedLocations = client.connection().state["groupedLocations"].toArray();
             for(const auto &country : groupedLocations)

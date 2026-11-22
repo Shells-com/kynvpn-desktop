@@ -29,11 +29,7 @@ const std::unordered_set<QString> &DaemonAccount::sensitiveProperties()
         QStringLiteral("openvpnPassword"),
         QStringLiteral("clientId"),
         QStringLiteral("portForwardPayload"),
-        QStringLiteral("portForwardSignature"),
-        // Clients don't need the dedicated IPs object at all, they observe
-        // these through the DIP regions.  This protects the tokens (the other
-        // information is present in the DIP regions).
-        QStringLiteral("dedicatedIps")
+        QStringLiteral("portForwardSignature")
     };
     return _sensitiveProperties;
 }

@@ -29,22 +29,13 @@ import "../client"
 Item {
   id: root
   readonly property int currentPage: Client.uiState.onboarding.currentPage
-  readonly property bool showHelpImprove: Daemon.data.flags.includes("service_quality_events")
-  property int numPages: showHelpImprove ? 5 : 4
-
-  // In the extreme case that showHelpImprove becomes false while we're actually
-  // on that page, go back to the prior page.
-  onShowHelpImproveChanged: {
-    if(!showHelpImprove && Client.uiState.onboarding.currentPage == pageIndices.helpimprove)
-      Client.uiState.onboarding.currentPage = pageIndices.finish
-  }
+  property int numPages: 4
 
   readonly property var pageIndices: ({
     welcome: 0,
     theme: 1,
     customize: 2,
-    finish: 3,
-    helpimprove: 4
+    finish: 3
   })
 
   Item {
@@ -91,15 +82,10 @@ Item {
     pageIndex: 3
     Page4Finish {}
   }
-  PageWrapper {
-    anchors.fill: parent
-    pageIndex: 4
-    Page5HelpUsImprove {anchors.fill: parent}
-  }
 
   PageFooter {
     visible: opacity > 0
-    opacity: currentPage !== pageIndices.welcome && currentPage !== pageIndices.helpimprove
+    opacity: currentPage !== pageIndices.welcome
     Behavior on opacity {
       NumberAnimation {
         duration: Theme.animation.normalDuration
@@ -113,7 +99,5 @@ Item {
     anchors.bottomMargin: 48
     anchors.rightMargin: 58
     anchors.leftMargin: 58
-
-    showHelpImprove: root.showHelpImprove
   }
 }

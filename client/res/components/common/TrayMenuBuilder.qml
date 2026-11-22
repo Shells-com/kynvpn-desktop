@@ -139,25 +139,6 @@ Item {
         if (Daemon.state.vpnLocations.chosenLocation || favs.length > 0) {
           addSeparator()
         }
-        //: Menu label for a submenu containing a list of dedicated IP regions.
-        var dipMenuItemText = uiTr("Connect to dedicated IP")
-        if(Daemon.state.dedicatedIpLocations.length > 0) {
-          var dips = []
-          for (i=0; i < Daemon.state.dedicatedIpLocations.length; ++i) {
-            var dipLoc = Daemon.state.dedicatedIpLocations[i]
-            dips.push({
-                        text: Client.getDetailedLocationName(dipLoc),
-                        code: "loc/" + dipLoc.id,
-                        icon: flag(Daemon.state.getRegionCountryCode(dipLoc.id))
-                      })
-          }
-          content.push({ text: dipMenuItemText, code: 'dedicatedip', children: dips.sort(function(a,b) { return a.text.localeCompare(b.text) }) })
-        }
-        else if(Daemon.data.flags.includes("dedicated_ip")) {
-          // There aren't any Dedicated IP regions, create a disabled menu item
-          // instead.
-          addMenuItem(dipMenuItemText, 'dedicatedip', false)
-        }
         var regions = []
         for (i=0; i < Daemon.state.groupedLocations.length; i++) {
           var country = Daemon.state.groupedLocations[i]

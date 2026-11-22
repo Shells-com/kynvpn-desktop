@@ -34,19 +34,17 @@ QtObject {
   readonly property var validRecentLocations: settings.recentLocations.filter(function(f) { return Daemon.state.availableLocations[f]; })
 
   // Display favorites in the following order:
-  // 1. Dedicated IPs (sorted by region name)
-  // 2. Country "best" favorites (sorted by country name)
-  // 3. Normal regions (sorted by region name)
+  // 1. Country "best" favorites (sorted by country name)
+  // 2. Normal regions (sorted by region name)
   //
   // Prior versions of PIA were (accidentally) comparing the "auto/<country>"
   // favorite code with display names for other regions, which mostly
   // sorted country groups first, except for countries like "Andorra", which
   // would sort before "auto".
   readonly property var favoriteSortGroups: ({
-    dedicatedIps: 0,
-    countryGroups: 1,
-    regions: 2,
-    invalid: 3
+    countryGroups: 0,
+    regions: 1,
+    invalid: 2
   })
 
   function determineFavoriteSortGroup(id, loc) {
@@ -55,9 +53,6 @@ QtObject {
 
     if(!loc)
       return favoriteSortGroups.invalid
-
-    if(loc.dedicatedIp)
-      return favoriteSortGroups.dedicatedIps
 
     return favoriteSortGroups.regions // Normal region
   }
@@ -134,9 +129,6 @@ QtObject {
 
       // Names to compare initially - either region names or country names
       var firstName, secondName
-      // Details to compare if the names are identical - currently only used for
-      // DIPs, this is the IP address
-      var firstDetail = "", secondDetail = ""
 
       if(firstGroup === favoriteSortGroups.countryGroups) {
         firstName = getCountryName(countryFromAutoCountryLocation(first))
@@ -145,17 +137,9 @@ QtObject {
       else {
         firstName = getRegionAutoName(firstLoc.id)
         secondName = getRegionAutoName(secondLoc.id)
-
-        if(firstGroup === favoriteSortGroups.dedicatedIps) {
-          firstDetail = firstLoc.dedicatedIp
-          secondDetail = secondLoc.dedicatedIp
-        }
       }
 
-      var nameComp = firstName.localeCompare(secondName, state.activeLanguage.locale)
-      if(nameComp !== 0)
-        return nameComp
-      return firstDetail.localeCompare(secondDetail, state.activeLanguage.locale)
+      return firstName.localeCompare(secondName, state.activeLanguage.locale)
     })
     return favorites
   }
@@ -261,14 +245,12 @@ QtObject {
   // adding them to the name.  This includes enough detail to distinguish the
   // location by the name returned.
   //
-  // Currently, this just adds the dedicated IP for dedicated IP locations.
+  // Currently, this is just the region's automatic name; no locations
+  // currently require additional detail.
   //
   // In most contexts, prefer to represent this information contextually when
   // possible (like in the regions list, etc.)
   function getDetailedLocationName(loc) {
-    if(loc.dedicatedIp)
-      return getRegionAutoName(loc.id) + " - " + loc.dedicatedIp
-
     return getRegionAutoName(loc.id)
   }
 

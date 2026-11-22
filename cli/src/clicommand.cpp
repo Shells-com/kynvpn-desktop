@@ -51,11 +51,7 @@ namespace
         {Error::Code::DaemonRPCNotLoggedIn, {CliExitCode::NotLoggedIn,
             "This command requires a logged in account"}},
         {Error::Code::DaemonRPCUnknownSetting, {CliExitCode::UnknownSetting,
-            "Request rejected, unknown property name"}},
-        {Error::Code::DaemonRPCDedicatedIpTokenExpired, {CliExitCode::DedicatedIpTokenExpired,
-            "The dedicated IP token has expired"}},
-        {Error::Code::DaemonRPCDedicatedIpTokenInvalid, {CliExitCode::DedicatedIpTokenInvalid,
-            "The dedicated IP token is invalid"}}
+            "Request rejected, unknown property name"}}
     };
 }
 

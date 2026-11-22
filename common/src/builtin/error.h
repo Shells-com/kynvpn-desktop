@@ -116,10 +116,9 @@ public:
         DaemonRPCDaemonInactive,    // RPC rejected because no active client is connected
         DaemonRPCNotLoggedIn,   // RPC rejected because the user has not logged in
         DaemonRPCUnknownSetting,    // RPC rejected due to unknown setting property
-        DaemonRPCDedicatedIpTokenExpired, // RPC rejected due to adding a DIP token that's expired
-        DaemonRPCDedicatedIpTokenInvalid, // RPC rejected due to adding a DIP token that's invalid
-        DaemonRPCObfuscationMismatch, // RPC rejected because the location has no servers matching the obfuscation setting
-        DaemonRPCDedicatedIpNoOpenVpnPorts, // RPC rejected because the dedicated IP has no ports for the OpenVPN protocol in use
+        // 1505 and 1506 were dedicated IP token errors, and 1508 was a dedicated
+        // IP port error; dedicated IPs were removed.
+        DaemonRPCObfuscationMismatch = 1507, // RPC rejected because the location has no servers matching the obfuscation setting
 
         // Network adapter errors (can be thrown by Daemon implementations)
         NetworkAdapterNotFound = 1600,

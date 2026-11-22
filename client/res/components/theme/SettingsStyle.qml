@@ -50,7 +50,6 @@ QtObject {
             'protocol',
             'network',
             'privacy',
-            'dedicated-ip',
             'automation',
             'split-tunnel',
             'multihop',
@@ -204,8 +203,6 @@ QtObject {
 
     readonly property string reconnectShadowImage: Theme.imagePathCommon + "/settings/shadow-reconnect.png"
 
-    readonly property string dedicatedIpPageImage: Theme.imagePath + "/settings/dedicatedip-page.png"
-
     readonly property color buttonBorderColor: Theme.dark ? "#59596D" : "#CDCDCD"
     readonly property color disabledButtonBorderColor : Theme.dark ? "#444555" : "#EDEAEA"
 
@@ -216,9 +213,4 @@ QtObject {
     // Spacing for settings
     readonly property int controlGridDefaultColSpacing: 10
     readonly property int controlGridDefaultRowSpacing: 10
-    readonly property string connEventAttemptImage: Theme.imagePath + "/settings/conn-event-attempt.png"
-    readonly property string connEventEstablishedImage: Theme.imagePath + "/settings/conn-event-established.png"
-    readonly property string connEventCanceledImage: Theme.imagePath + "/settings/conn-event-canceled.png"
-    readonly property string connEventExpandButton: Theme.imagePath + "/settings/conn-event-expand.png"
-    readonly property string connEventExpandButtonHover: Theme.imagePath + "/settings/conn-event-expand-hover.png"
 }

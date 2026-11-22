@@ -61,7 +61,7 @@ public:
                 std::string{}, pServiceGroup);
             auto regionId = qs::format("%-%", prefix, _mockServerList.size());
             auto pRegion = std::make_shared<kapps::regions::Region>(regionId,
-                true, false, false, kapps::core::Ipv4Address{},
+                true, false, false,
                 std::vector<std::shared_ptr<const kapps::regions::Server>>{pServer});
 
             auto pLocation = QSharedPointer<Location>::create(
@@ -308,7 +308,7 @@ private slots:
         auto pBogusServer = std::make_shared<kapps::regions::Server>(
             kapps::core::Ipv4Address{}, "n/a", std::string{}, pServiceGroup);
         auto pBogusRegion = std::make_shared<kapps::regions::Region>("mock-bogus-addr",
-            true, false, false, kapps::core::Ipv4Address{},
+            true, false, false,
             std::vector<std::shared_ptr<const kapps::regions::Server>>{pBogusServer});
 
         auto pBogusAddr = QSharedPointer<Location>::create(
@@ -316,7 +316,7 @@ private slots:
 
         // Location with no servers at all (offline)
         auto pOfflineRegion = std::make_shared<kapps::regions::Region>("mock-bogus-offline",
-            true, false, false, kapps::core::Ipv4Address{},
+            true, false, false,
             std::vector<std::shared_ptr<const kapps::regions::Server>>{pBogusServer});
 
         auto pNoServers = QSharedPointer<Location>::create(
