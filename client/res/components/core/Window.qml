@@ -17,7 +17,8 @@
 // <https://www.gnu.org/licenses/>.
 
 import QtQuick 2.0 as QtQuick
-import QtQuick.Window 2.10 as QtQuickWindow
+// 2.13 for Window.transientParent (see DashboardPopup)
+import QtQuick.Window 2.13 as QtQuickWindow
 import "../client"
 
 // Window tweaks:

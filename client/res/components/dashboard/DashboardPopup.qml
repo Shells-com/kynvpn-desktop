@@ -268,6 +268,12 @@ PiaWindow {
   }
 
   visibility: slideAnimator.dashVisible ? Window.Windowed : Window.Hidden
+  // The dashboard is a top-level window with no transient parent.  This has to
+  // be stated: it's created by DashboardFrameLoader's Loader, and Qt assumes
+  // that a Window declared in an Item is transient for that Item's window,
+  // deferring 'visibility' until the Item is in a window.  That Loader never
+  // is, so the dashboard would never be shown.
+  transientParent: null
 
   DashboardPopupPlacement {
     id: dashPlacement
