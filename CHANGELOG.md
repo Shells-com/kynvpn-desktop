@@ -1,4 +1,9 @@
 # Changelog
+### v1.0.5
+* Windows/macOS: Fixed the dashboard never appearing when it's attached to the tray icon (the default)
+* All: Fixed "What's new" opening on every launch instead of the dashboard
+* Internal: The Windows client's windows are now checked on screen (install, first run, login) before it is published
+
 ### v1.0.4
 * All: Removed the opt-in connection statistics ("Help Improve") feature entirely. The app has no code left to send usage events
 * All: Removed dedicated IPs

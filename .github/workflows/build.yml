@@ -363,9 +363,55 @@ jobs:
             ${{ runner.temp }}/e2e/kynvpn-e2e.*/artifacts/
           if-no-files-found: ignore
 
+  # The Windows client on a desktop: installs it and checks that the first-run
+  # tour and the dashboard's login page come up (tests/win-ui/README.md).
+  # Screenshots of each are kept as artifacts.
+  windows-ui:
+    name: ui-windows-${{ matrix.arch }}
+    needs: [windows]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: windows-2025
+          - arch: arm64
+            runner: windows-11-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: tests/win-ui
+      - uses: actions/download-artifact@v8
+        with:
+          name: kyn-windows-${{ matrix.arch }}
+          path: dist
+      - name: Clear the desktop
+        # A fresh runner can have the first-logon privacy screen or the Start
+        # menu open, which would cover the screenshots
+        shell: powershell
+        run: |
+          Get-Process -Name WWAHost, UserOOBEBroker, StartMenuExperienceHost -ErrorAction SilentlyContinue |
+            Stop-Process -Force -ErrorAction SilentlyContinue
+          exit 0
+      - name: Run the UI test
+        shell: powershell
+        run: |
+          $installer = Get-ChildItem dist -Recurse -Filter 'kyn-windows-*.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'no installer in the build artifact' }
+          & tests\win-ui\run.ps1 -Installer $installer.FullName -OutDir "$env:RUNNER_TEMP\win-ui"
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: ui-windows-${{ matrix.arch }}-screenshots
+          path: ${{ runner.temp }}/win-ui/
+          if-no-files-found: ignore
+
   release:
     name: Release
-    needs: [linux, macos, windows, e2e]
+    needs: [linux, macos, windows, e2e, windows-ui]
     if: github.ref_type == 'tag'
     runs-on: ubuntu-24.04
     # RELEASE_SIGNING_KEY: Ed25519 key signing SHA256SUMS and update.json (the
